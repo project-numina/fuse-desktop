@@ -30,7 +30,7 @@ jobs:
       - run: npm test
       - name: Smoke-test the bundle
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npx electron --no-sandbox .
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" npx electron --no-sandbox --disable-gpu --disable-dev-shm-usage --ozone-platform=x11 .
         env:
           FUSE_SCREENSHOT: ${{ runner.temp }}/fuse.png
       - uses: actions/upload-artifact@v7
@@ -61,7 +61,7 @@ jobs:
       - run: npm run dist
       - name: Smoke-test packaged app (Linux)
         if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum node scripts/smoke-package.mjs
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" node scripts/smoke-package.mjs
       - name: Smoke-test packaged app (macOS and Windows)
         if: runner.os != 'Linux'
         run: node scripts/smoke-package.mjs
