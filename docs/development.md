@@ -85,9 +85,11 @@ Keep the app ID and signing identities stable across versions.
 ## Run from source
 
 ```bash
-npm ci
-npm run dev        # Electron with hot reload (Vite serves the renderer, /api is proxied)
+make app          # Install dependencies when needed, then start Electron with hot reload
 ```
+
+Without Make (including native Windows), use `npm ci` and `npm run dev`.
+Vite serves the renderer and proxies `/api` to the local backend.
 
 Other scripts:
 
