@@ -296,7 +296,7 @@ describe('CodexThread', () => {
     const thread = new CodexThread(launch({ codex: { developerInstructions: instructions } }), (event) => events.push(event));
     await thread.send('turn-1', 'hello');
     await flush();
-    const written = child.written.join('\n');
+    const written = child.stdinText;
     if (process.platform === 'win32') {
       expect(written).toBe(`<system_instructions>\n${instructions.trim()}\n</system_instructions>\n\nhello`);
     } else {
