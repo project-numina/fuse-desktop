@@ -1,0 +1,2 @@
+# Keep source and text fixtures identical on every build host.
+* text=auto eol=lf

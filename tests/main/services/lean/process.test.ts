@@ -120,13 +120,14 @@ describe('Lean tool discovery and spawning', () => {
     const root = mkdtempSync(join(tmpdir(), 'fuse-lean-process-'));
     const elan = join(root, 'elan');
     const alternate = join(root, 'alternate');
+    const lake = process.platform === 'win32' ? 'lake.exe' : 'lake';
     try {
       mkdirSync(join(elan, 'bin'), { recursive: true });
       mkdirSync(alternate, { recursive: true });
-      writeFileSync(join(elan, 'bin', 'lake'), '');
-      writeFileSync(join(alternate, 'lake'), '');
+      writeFileSync(join(elan, 'bin', lake), '');
+      writeFileSync(join(alternate, lake), '');
 
-      expect(leanToolPath('lake', { ELAN_HOME: elan })).toBe(join(elan, 'bin', 'lake'));
+      expect(leanToolPath('lake', { ELAN_HOME: elan })).toBe(join(elan, 'bin', lake));
       expect(leanToolPath('lean', { ELAN_HOME: elan })).toBe('lean');
       expect(leanToolchainAvailable({ ELAN_HOME: elan, PATH: '' })).toBe(true);
       expect(leanToolchainAvailable({ ELAN_HOME: join(root, 'missing'), PATH: alternate })).toBe(true);

@@ -23,7 +23,7 @@ describe('lean routes', () => {
 
   beforeEach(() => {
     dataDir = mkdtempSync(join(tmpdir(), 'fuse-route-data-'));
-    repoDir = realpathSync(mkdtempSync(join(tmpdir(), 'fuse-route-repo-')));
+    repoDir = realpathSync.native(mkdtempSync(join(tmpdir(), 'fuse-route-repo-')));
     mkdirSync(join(repoDir, 'Foo'));
     writeFileSync(join(repoDir, 'lakefile.toml'), 'name = "foo"\n');
     writeFileSync(join(repoDir, 'Foo', 'Bar.lean'), 'theorem x : True := by trivial\n');
