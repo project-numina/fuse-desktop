@@ -104,7 +104,8 @@ type StatKind = 'file' | 'other' | 'missing' | 'error';
  * NUL byte) raises and makes the candidate unusable.
  */
 function statKind(candidate: string): StatKind {
-  if (candidate.includes('\0')) return 'error';
+  // Windows reports some overlong components as ENOENT instead of ENAMETOOLONG.
+  if (candidate.includes('\0') || candidate.split(/[\\/]/).some((part) => part.length > 255)) return 'error';
   try {
     return fs.statSync(candidate).isFile() ? 'file' : 'other';
   } catch (error) {

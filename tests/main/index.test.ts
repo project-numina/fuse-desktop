@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { join } from 'node:path';
 import { DESKTOP_IPC } from '@shared/desktop';
 
 vi.mock('@main/updates', () => ({ startUpdates: () => ({ check: vi.fn() }) }));
@@ -273,7 +274,7 @@ describe('Electron main bootstrap', () => {
     const ipc = (channel: string) => electron.ipcHandlers.get(channel) as (...args: unknown[]) => unknown;
     const sender = {};
     expect(ipc(DESKTOP_IPC.navigationState)({ sender })).toEqual({ canGoBack: true, canGoForward: false, swipeEnabled: true });
-    expect(deps.pageNavigationState).toHaveBeenCalledWith(sender, true);
+    expect(deps.pageNavigationState).toHaveBeenCalledWith(sender, process.platform === 'darwin');
     expect(ipc(DESKTOP_IPC.navigationGo)({ sender }, -1)).toBe(true);
     expect(deps.navigatePage).toHaveBeenCalledWith(sender, -1);
     await expect(ipc(DESKTOP_IPC.providersDetect)()).resolves.toEqual([{ id: 'claude' }]);
@@ -287,7 +288,7 @@ describe('Electron main bootstrap', () => {
       { id: 'fuse', label: 'Fuse app data', path: '/tmp/fuse-user-data', kind: 'fuse' },
       { id: 'elan', label: 'Lean toolchains & Elan data', path: '/elan', kind: 'lean' },
       expect.objectContaining({ id: 'mathlib-cache', kind: 'lean' }),
-      { id: 'repo-7:project', label: 'Repo / project', path: '/repos/repo/project/.lake', kind: 'repository' },
+      { id: 'repo-7:project', label: 'Repo / project', path: join('/repos/repo', 'project', '.lake'), kind: 'repository' },
     ]);
     await expect(ipc(DESKTOP_IPC.storageOpen)()).resolves.toBeUndefined();
     expect(electron.openPath).toHaveBeenCalledWith('/tmp/fuse-user-data');

@@ -12,12 +12,14 @@ export class FakeProcess extends EventEmitter {
   readonly stdout = new PassThrough();
   readonly stderr = new PassThrough();
   readonly written: string[] = [];
+  stdinText = '';
   exitCode: number | null = null;
   killed: NodeJS.Signals | null = null;
 
   constructor() {
     super();
     this.stdin.on('data', (chunk: Buffer) => {
+      this.stdinText += chunk.toString();
       for (const line of chunk.toString().split('\n')) {
         if (line.trim()) this.written.push(line);
       }

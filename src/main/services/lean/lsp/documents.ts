@@ -70,7 +70,9 @@ export class DocumentStore {
   constructor(
     readonly projectRoot: string,
     readonly maxDocuments: number,
-  ) {}
+  ) {
+    this.projectRoot = resolveLenient(projectRoot);
+  }
 
   /** Resolve a caller path (relative to the project root) into `[absolute, uri]`. */
   resolve(path: string): [string, string] {

@@ -56,8 +56,8 @@ export function buildFailed(output: BuildOutput): boolean {
   return output.exitCode !== 0 || errorsOf(output).length > 0 || output.unscopedErrors.length > 0;
 }
 
-export const DIAGNOSTIC_HEADER = /^(?<file>[^\s:]+\.lean):(?<line>\d+):(?<column>\d+):\s*(?<severity>error|warning|info):\s*(?<message>.*)$/;
-export const DIAGNOSTIC_PREFIXED = /^(?<severity>error|warning|info):\s*(?<file>[^\s:]+\.lean):(?<line>\d+):(?<column>\d+):\s*(?<message>.*)$/;
+export const DIAGNOSTIC_HEADER = /^(?<file>(?:[A-Za-z]:)?[^:\r\n]+\.lean):(?<line>\d+):(?<column>\d+):\s*(?<severity>error|warning|info):\s*(?<message>.*)$/;
+export const DIAGNOSTIC_PREFIXED = /^(?<severity>error|warning|info):\s*(?<file>(?:[A-Za-z]:)?[^:\r\n]+\.lean):(?<line>\d+):(?<column>\d+):\s*(?<message>.*)$/;
 /**
  * `[N/M] <target>`. Lake ≥ 4.9 prefixes the line with a status glyph
  * (`✔ [3/5] Built Foo`, `✖ [3/5] Building Foo`); the optional glyph keeps the

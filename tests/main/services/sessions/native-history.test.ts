@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resolve } from 'node:path';
 import { getSessionInfo, getSessionMessages, listSessions } from '@anthropic-ai/claude-agent-sdk';
 import { codexHistoryRequest } from '@main/services/sessions/codex-history-rpc';
 import { claudeMessages, codexMessages, ProviderNativeHistory } from '@main/services/sessions/native-history';
@@ -40,7 +41,7 @@ describe('native history adapters', () => {
     expect(result.sessions.map((row) => row.threadId).sort()).toEqual(['c1', 'x1']);
     expect(result.errors).toEqual([]);
     expect(listSessions).toHaveBeenCalledTimes(1);
-    expect(codexHistoryRequest).toHaveBeenLastCalledWith('/bin/codex', 'thread/list', expect.objectContaining({ cursor: 'next', cwd: '/repo' }));
+    expect(codexHistoryRequest).toHaveBeenLastCalledWith('/bin/codex', 'thread/list', expect.objectContaining({ cursor: 'next', cwd: resolve('/repo') }));
   });
 
   it('keeps one provider available when the other fails', async () => {

@@ -292,15 +292,16 @@ describe('CodexThread', () => {
       spawnedArgs.push(args);
       return child;
     });
-    const thread = new CodexThread(launch({ codex: { developerInstructions: 'Be terse.' } }), (event) => events.push(event));
+    const instructions = 'Be terse.\n'.repeat(4_000);
+    const thread = new CodexThread(launch({ codex: { developerInstructions: instructions } }), (event) => events.push(event));
     await thread.send('turn-1', 'hello');
     await flush();
-    const written = child.written.join('\n');
+    const written = child.stdinText;
     if (process.platform === 'win32') {
-      expect(written.startsWith('<system_instructions>\nBe terse.\n</system_instructions>\n\nhello')).toBe(true);
+      expect(written).toBe(`<system_instructions>\n${instructions.trim()}\n</system_instructions>\n\nhello`);
     } else {
       expect(written).toBe('hello');
-      expect(spawnedArgs[0]).toContain('developer_instructions="Be terse."');
+      expect(spawnedArgs[0]).toContain(`developer_instructions=${JSON.stringify(instructions)}`);
     }
   });
 });

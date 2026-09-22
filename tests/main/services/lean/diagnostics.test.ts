@@ -49,6 +49,14 @@ describe('DiagnosticAccumulator', () => {
     }
   });
 
+  it.each(['', 'error: '])('parses Windows drive paths with spaces (prefix %j)', (prefix) => {
+    const [output, acc] = accumulator();
+    const suffix = prefix ? 'broken' : 'error: broken';
+    acc.feedLine(`${prefix}C:\\Users\\Lean User\\Main.lean:3:7: ${suffix}`);
+    acc.flush();
+    expect(errorsOf(output)).toEqual([{ file: 'C:/Users/Lean User/Main.lean', line: 3, column: 7, severity: 'error', message: 'broken' }]);
+  });
+
   it('attaches continuation lines to the pending diagnostic', () => {
     const [output, acc] = accumulator();
     acc.feedLine('Foo/Bar.lean:10:5: error: type mismatch');

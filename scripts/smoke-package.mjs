@@ -18,7 +18,7 @@ if (!executable) throw new Error('Packaged executable was not found.');
 const directory = mkdtempSync(join(tmpdir(), 'fuse-package-smoke-'));
 const screenshot = join(directory, 'smoke.png');
 const args = [`--user-data-dir=${join(directory, 'data')}`];
-if (process.platform === 'linux') args.push('--no-sandbox');
+if (process.platform === 'linux') args.push('--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--ozone-platform=x11');
 const child = spawn(executable, args, {
   env: { ...process.env, FUSE_SCREENSHOT: screenshot },
   stdio: 'inherit',

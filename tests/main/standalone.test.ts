@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { join, resolve } from 'node:path';
 
 const deps = vi.hoisted(() => {
   const registry = {
@@ -81,20 +82,22 @@ describe('standalone entrypoint', () => {
     await vi.waitFor(() => expect(stdoutSpy).toHaveBeenCalledOnce());
 
     expect(deps.extendPathFromLoginShell).toHaveBeenCalledOnce();
-    expect(deps.mkdirSync).toHaveBeenCalledWith('/tmp/fuse-data', { recursive: true });
-    expect(deps.appPaths).toHaveBeenCalledWith('/tmp/fuse-data');
-    expect(deps.Registry).toHaveBeenCalledWith({ data: '/tmp/fuse-data', repositories: '/tmp/fuse-data/repositories.json' });
-    expect(deps.SettingsStore).toHaveBeenCalledWith('/tmp/fuse-data/settings.json');
-    expect(deps.registry.addRepository.mock.calls.map(([path]) => path)).toEqual(['/tmp/repo-a', '/tmp/repo-b']);
+    const data = resolve('/tmp/fuse-data');
+    const paths = { data, repositories: `${data}/repositories.json` };
+    expect(deps.mkdirSync).toHaveBeenCalledWith(data, { recursive: true });
+    expect(deps.appPaths).toHaveBeenCalledWith(data);
+    expect(deps.Registry).toHaveBeenCalledWith(paths);
+    expect(deps.SettingsStore).toHaveBeenCalledWith(join(data, 'settings.json'));
+    expect(deps.registry.addRepository.mock.calls.map(([path]) => path)).toEqual(['/tmp/repo-a', '/tmp/repo-b'].map((path) => resolve(path)));
     expect(deps.startLocalServer).toHaveBeenCalledWith(
       expect.objectContaining({
-        paths: { data: '/tmp/fuse-data', repositories: '/tmp/fuse-data/repositories.json' },
+        paths,
         registry: deps.registry,
         resourcesDir: expect.stringMatching(/resources$/),
         server: { baseUrl: 'http://127.0.0.1:4321', token: 'secret' },
         services: { shutdown },
       }),
-      { rendererDir: '/tmp/renderer', port: 4321, token: 'secret' },
+      { rendererDir: resolve('/tmp/renderer'), port: 4321, token: 'secret' },
     );
     expect(stdoutSpy).toHaveBeenCalledWith(`${JSON.stringify({
       baseUrl: 'http://127.0.0.1:4321',

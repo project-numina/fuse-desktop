@@ -28,6 +28,9 @@ export default defineConfig({
         test: {
           name: 'main',
           environment: 'node',
+          // Real Git subprocess integration tests take longer on Windows runners.
+          testTimeout: process.platform === 'win32' ? 20_000 : 5_000,
+          hookTimeout: process.platform === 'win32' ? 30_000 : 10_000,
           include: [
             'tests/main/**/*.test.ts',
             'tests/mcp/**/*.test.ts',

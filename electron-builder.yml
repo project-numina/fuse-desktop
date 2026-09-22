@@ -1,7 +1,6 @@
 appId: org.numina.fuse-desktop
 productName: Fuse
-# The .deb target requires a project homepage and a maintainer address that
-# package.json does not carry (the app lives inside the monorepo).
+# The .deb target requires a project homepage and maintainer address.
 extraMetadata:
   homepage: https://projectnumina.ai
 directories:
