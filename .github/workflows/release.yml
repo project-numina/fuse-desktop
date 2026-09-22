@@ -12,6 +12,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
   build:
     needs: check
+    timeout-minutes: 45
     environment: release
     strategy:
       fail-fast: false
@@ -68,6 +69,12 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GH_TOKEN: ${{ github.token }}
         run: npx electron-builder ${{ matrix.args }} --publish never -c.forceCodeSigning=${{ matrix.platform != 'linux' }}
+      - name: Smoke-test signed package (macOS and Windows)
+        if: runner.os != 'Linux'
+        run: node scripts/smoke-package.mjs
+      - name: Smoke-test package (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x800x24" node scripts/smoke-package.mjs
       - uses: actions/upload-artifact@v7
         with:
           name: installers-${{ matrix.platform }}

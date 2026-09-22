@@ -32,7 +32,7 @@ Fuse never restarts an active session automatically. Use **Help → Check for Up
 to check manually. DEB installations are updated manually by installing a newer DEB.
 No GitHub sign-in is needed. An internet connection is required to check/download.
 
-- Node.js 22 or newer (to build and run from source).
+- Node.js 22.12 or newer (to build and run from source).
 - At least one of the CLIs on your `PATH`, logged in:
   - `npm install -g @anthropic-ai/claude-code`, then run `claude` once to sign in.
   - `npm install -g @openai/codex`, then `codex login`.
@@ -64,8 +64,9 @@ Windows signing providers that require a hardware token or cloud signing service
 need their signing integration instead of the PFX route. Release builds fail if the
 required signing credentials are missing; unsigned main-branch CI artifacts are for testing only.
 
-To release, update the version with `npm version patch` (or `minor`/`major`) on a clean,
-reviewed main branch, then push the commit and its `vX.Y.Z` tag. CI tests all three
+To release, update the version with `npm version patch --no-git-tag-version` (or
+`minor`/`major`) in a pull request. Once it passes CI and is merged, tag the reviewed
+main commit `vX.Y.Z` and push that tag. CI tests all three
 platforms and builds signed macOS universal, Windows x64, and Linux x64 installers.
 Only after every build succeeds does it create a **draft** GitHub Release containing
 installers, blockmaps, and `latest*.yml` update metadata. Test the installers and a
@@ -81,7 +82,7 @@ Keep the app ID and signing identities stable across versions.
 ## Run from source
 
 ```bash
-npm install
+npm ci
 npm run dev        # Electron with hot reload (Vite serves the renderer, /api is proxied)
 ```
 
@@ -258,4 +259,4 @@ build and LSP, git, workspaces, sources, sessions) for one local user, and
 
 ## License
 
-MIT
+AGPL-3.0-or-later. See [LICENSE](LICENSE) and [THIRD_PARTY.md](THIRD_PARTY.md).
