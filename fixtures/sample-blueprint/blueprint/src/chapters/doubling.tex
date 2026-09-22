@@ -1,0 +1,34 @@
+\chapter{Doubling}
+\label{chap:doubling}
+
+\begin{definition}[Doubling]
+  \label{def:twice}
+  \lean{twice}
+  \leanok
+  For a natural number $n$, its \emph{double} is $2n = n + n$.
+\end{definition}
+
+\begin{lemma}[Doubling zero]
+  \label{lem:twice-zero}
+  \lean{twice_zero}
+  \uses{def:twice}
+  \leanok
+  The double of $0$ is $0$.
+\end{lemma}
+\begin{proof}
+  \leanok
+  Immediate from the definition.
+\end{proof}
+
+\begin{theorem}[Doubling formula]
+  \label{thm:twice-eq}
+  \lean{twice_eq}
+  \uses{def:twice}
+  \leanok
+  For every natural number $n$ we have $2n = n + n$.
+\end{theorem}
+\begin{proof}
+  \uses{lem:twice-zero}
+  \leanok
+  By definition.
+\end{proof}

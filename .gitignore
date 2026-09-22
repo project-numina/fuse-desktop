@@ -1,0 +1,14 @@
+node_modules/
+out/
+dist/
+release/
+coverage/
+*.tsbuildinfo
+*.log
+.DS_Store
+
+# Source/test modules named build are not generated build output.
+!src/main/services/lean/build/
+!src/main/services/lean/build/**
+!tests/main/services/lean/build/
+!tests/main/services/lean/build/**

@@ -1,0 +1,1439 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./features/chat/components/panel/chat-transcript.css";
+@import "./features/chat/components/subagents/subagent-cards.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Tailwind v4 theme mapping ──────────────────────────────────────────── */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --font-sans: var(--numina-font-sans);
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+}
+
+/* ─── Numina Design Tokens ─────────────────────────────────────────────────── */
+
+:root {
+  font-size: calc(100% * var(--app-font-scale, 1));
+  /* Backgrounds */
+  --numina-bg: #fffefc;
+  --numina-card-bg: #fff;
+  --numina-card-bg-translucent: rgb(255 255 255 / 85%);
+  --numina-surface-raised: #fff;
+
+  /* Borders */
+  --numina-border: #d6cfc0;
+  --numina-border-light: #e8e2d8;
+
+  /* Brand */
+  --numina-red: #ff5e62;
+  --numina-red-hover: #e8484c;
+  --numina-orange: #f96;
+  --numina-accent: #cc5034;
+  --numina-accent-hover: color-mix(in srgb, var(--numina-accent) 85%, black);
+  --numina-brown: #a85923;
+
+  /* Text */
+  --numina-text: #222;
+  --numina-text-muted: #888;
+  --numina-text-brown: #6b5b4a;
+  --gray-500: #6b7280;
+  --gray-600: #4b5563;
+
+  /* Effects */
+  --numina-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
+  --github-signin-bg: #111827;
+  --github-signin-bg-hover: #1f2937;
+  --github-signin-text: #fff;
+  --tiling-card-bg: rgb(255 255 255 / 82%);
+  --tiling-card-border: rgb(214 207 192 / 50%);
+  --tiling-card-shadow: 0 4px 24px rgb(0 0 0 / 6%), inset 0 1px 0 rgb(255 255 255 / 80%);
+  --maintenance-banner-bg: #faf5e8;
+  --maintenance-banner-border: #ece4cf;
+
+  /* Radii */
+  --numina-radius: 20px;
+  --numina-radius-sm: 12px;
+  --numina-radius-pill: 999px;
+
+  /* Fonts */
+  --numina-font-sans: 'Inter', Arial, sans-serif;
+  --numina-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Dep tags */
+  --dep-tag-bg: #eae4d8;
+  --dep-tag-text: #6b5b4a;
+  --ann-lean-name-text: #6b7280;
+  --ann-lean-name-bg: #f3f4f6;
+  --ann-title: #111827;
+  --ann-statement: #1f2937;
+  --ann-body: #4b5563;
+  --ann-summary: #6b7280;
+  --ann-summary-hover: #374151;
+
+  /* shadcn/ui overrides — map to Numina palette */
+  --background: #fffef9;
+  --foreground: #222;
+  --card: #fff;
+  --card-foreground: #222;
+  --popover: #fff;
+  --popover-foreground: #222;
+  --primary: var(--numina-accent);
+  --primary-foreground: #fff;
+  --secondary: #f5f0e8;
+  --secondary-foreground: #222;
+  --muted: #f5f0e8;
+  --muted-foreground: #888;
+  --accent: #fef3ec;
+  --accent-foreground: var(--numina-accent);
+
+  /* A step down from the brand red (--numina-red). That value is tuned to sit
+     on a surface as a tint or an icon; as a filled button behind white text it
+     reads washed out, and as body copy it lands around 3:1 on the cream page
+     background. This darker step carries white text and passes AA as text. */
+  --destructive: #dc3c40;
+  --destructive-foreground: #fff;
+  --border: #d6cfc0;
+  --input: #d6cfc0;
+  --ring: var(--numina-accent);
+  --radius: 0.75rem;
+
+  /* ─── Application design tokens ───────────────────────────────────────────
+     Additional design tokens referenced by application components and editor
+     themes that the Numina/shadcn tokens above don't cover. These are the light
+     values; dark overrides live in the `.dark` block below.
+     Tokens semantically identical to an existing token are defined via
+     `var(--existing)` so they track light/dark automatically; distinct fuse
+     values are preserved literally. */
+
+  /* Core surfaces / borders */
+  --numina-bg-gradient-end: #faf9f6;
+  --numina-surface-sunken: #f5f1ea;
+  --numina-border-strong: #b8b0a2;
+  --numina-info: #3b82f6;
+
+  /* Overlays / hover / chat surfaces */
+  --accent-overlay: color-mix(in srgb, var(--numina-accent) 15%, transparent);
+  --accent-overlay-soft: color-mix(in srgb, var(--numina-accent) 8%, transparent);
+  --accent-focus-ring: color-mix(in srgb, var(--numina-accent) 12%, transparent);
+  --accent-hero-shadow: color-mix(in srgb, var(--numina-accent) 35%, transparent);
+  --hover-overlay: rgb(34 34 34 / 5%);
+  --hover-overlay-strong: rgb(34 34 34 / 8%);
+  --row-hover-bg: rgb(34 34 34 / 3%);
+  --scrollbar-thumb: rgb(0 0 0 / 25%);
+  --scrollbar-thumb-hover: rgb(0 0 0 / 35%);
+  --user-bubble-bg: #f0eee9;
+  --pending-user-bubble-bg: #f8f6f2;
+  --chat-panel-bg: #fff9f4;
+  --dark-tooltip-bg: rgb(0 0 0 / 65%);
+  --dark-tooltip-text: #fff;
+
+  /* Subagent shimmer */
+  --subagent-shimmer-base: #374151;
+  --subagent-shimmer-highlight: #9ca3af;
+
+  /* Tool-call diff / write previews (CodeMirror themes) */
+  --diff-write-bg: #fcfffd;
+  --diff-write-gutter-bg: #f0fdf4;
+  --diff-write-border: #d1fae5;
+  --diff-deletion-bg: #fef2f2;
+  --diff-deletion-highlight: #fecaca;
+  --diff-insertion-bg: #f0fdf4;
+  --diff-insertion-highlight: #bbf7d0;
+  --editor-selection-bg: #c7d2fe;
+
+  /* Radius / spacing / type / weight / shadow scales */
+  --radius-xs: 4px;
+  --radius-full: 999px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --text-xxs: 0.65rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.75rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --shadow-sm: 0 1px 4px rgb(0 0 0 / 5%);
+  --shadow-md: 0 3px 10px rgb(0 0 0 / 15%);
+  --shadow-lg: 0 6px 20px rgb(0 0 0 / 8%);
+  --shadow-xl: 0 8px 24px -12px rgb(17 24 39 / 15%), 0 2px 6px -2px rgb(17 24 39 / 8%);
+  --transition-fast: 0.12s;
+  --transition-base: 0.15s;
+
+  /* Shared empty-state top anchor (Overview / Graph / Sources / History)
+     so every empty-state heading lines up at the same screen height. No
+     dark override — it tracks the viewport identically in both themes. */
+  --empty-state-anchor: clamp(3.5rem, 34vh, 40rem);
+
+  /* Semantic text colors (aliased to existing tokens where identical) */
+  --text-primary: var(--foreground);
+  --text-body: #4b5563;
+  --text-muted: var(--numina-text-muted);
+  --text-on-accent: var(--primary-foreground);
+
+  /* Formalization status text / bg */
+  --status-unformalized-bg: #fce0de;
+  --status-unformalized-text: #dc2626;
+  --status-unformalized-fill: #ef4444;
+  --status-formalized-bg: #fdf6d0;
+  --status-formalized-text: #ca8a04;
+  --status-formalized-fill: #eab308;
+  --status-proved-bg: #d4edda;
+  --status-proved-text: #16a34a;
+  --status-proved-fill: #22c55e;
+  --status-verified-bg: #d4edda;
+  --status-verified-text: #16a34a;
+  --status-verified-fill: #22c55e;
+
+  /* Semantic status error (general CRUD / error UI). Numerically equal to
+     --status-unformalized-text in both themes but kept a distinct literal to
+     match fuse's tokens.css, where the two are separate semantic tokens. */
+  --numina-error: #dc2626;
+
+  /* Warning banner (e.g. Lean build warnings). */
+  --warning-bg: #fff7df;
+  --warning-border: #f5d48a;
+  --warning-text: #6f4a00;
+
+  /* Build / LSP diagnostics */
+  --build-error: #c12929;
+  --build-error-strong: #9e1f1f;
+  --build-warning: #c47e21;
+
+  /* Kind badge (theorem) */
+  --badge-theorem-bg: #dbeafe;
+  --badge-theorem-text: #1e40af;
+  --badge-theorem-border: #60a5fa;
+
+  /* Code viewer */
+  --code-bg: #f1f5f9;
+  --code-border: #e2e8f0;
+  --code-header-bg: #f8fafc;
+  --code-header-text: #64748b;
+  --code-line-number: #94a3b8;
+
+  /* Syntax highlighting (hljs / Lean) */
+  --syntax-keyword: #9b59b6;
+  --syntax-built-in: #8e44ad;
+  --syntax-comment: #7f8c8d;
+  --syntax-string: #27ae60;
+  --syntax-number: #e67e22;
+  --syntax-symbol: #c0392b;
+  --syntax-attr: #b58900;
+
+  /* Syntax highlighting (Prism / LaTeX) */
+  --syntax-latex-function: #0f766e;
+  --syntax-latex-keyword: #8f4a22;
+  --syntax-latex-punctuation: #7c8b9a;
+  --syntax-latex-equation: #1f8a70;
+  --syntax-latex-command: var(--numina-accent);
+  --syntax-latex-structure-command: #60a5fa;
+  --syntax-latex-structure-name: #1d4ed8;
+  --syntax-latex-comment: #8a7f73;
+
+  color-scheme: light;
+}
+
+/* ─── Dark Theme ───────────────────────────────────────────────────────────
+   The ThemeProvider toggles the `.dark` class on <html>. In dark mode, the
+   shadcn semantic vars are remapped to the dark Numina tokens (same mapping the
+   light `:root` above uses), and the `--numina-*` tokens that shift in dark mode
+   are overridden. The light `:root` values stay intact for the default theme. */
+
+.dark {
+  /* Backgrounds */
+  --numina-bg: #13151a;
+  --numina-card-bg: #090b0d;
+  --numina-card-bg-translucent: rgb(9 11 13 / 85%);
+  --numina-surface-raised: #20232b;
+
+  /* Borders */
+  --numina-border: #4f5663;
+  --numina-border-light: #424754;
+
+  /* Brand */
+  --numina-red: #ff7074;
+  --numina-red-hover: #ff8c8f;
+  --numina-orange: #ffa873;
+  --numina-accent: #e77841;
+  --numina-accent-hover: color-mix(in srgb, var(--numina-accent) 85%, white);
+  --numina-brown: #c47a4a;
+
+  /* Text */
+  --numina-text: #f8faff;
+  --numina-text-muted: #c4cad4;
+  --numina-text-brown: #c8b89c;
+  --gray-500: #c4cad4;
+  --gray-600: #d4dae5;
+
+  /* Effects */
+  --numina-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+  --github-signin-bg: #f3eee5;
+  --github-signin-bg-hover: #e6dfd2;
+  --github-signin-text: #16161a;
+  --tiling-card-bg: rgb(31 31 35 / 78%);
+  --tiling-card-border: rgb(70 65 58 / 60%);
+  --tiling-card-shadow: 0 4px 24px rgb(0 0 0 / 40%), inset 0 1px 0 rgb(255 255 255 / 4%);
+  --maintenance-banner-bg: #2a2618;
+  --maintenance-banner-border: #3a3424;
+
+  /* Dep tags */
+  --dep-tag-bg: #2f2a23;
+  --dep-tag-text: #c8b89c;
+  --ann-lean-name-text: #a8a195;
+  --ann-lean-name-bg: #26262a;
+  --ann-title: #f3eee5;
+  --ann-statement: #d8d2c6;
+  --ann-body: #b8b2a6;
+  --ann-summary: #908a7e;
+  --ann-summary-hover: #c8c2b6;
+
+  /* shadcn/ui overrides — map to the dark Numina palette */
+  --background: #13151a;
+  --foreground: #f8faff;
+  --card: #090b0d;
+  --card-foreground: #f8faff;
+  --popover: #090b0d;
+  --popover-foreground: #f8faff;
+  --primary: var(--numina-accent);
+  --primary-foreground: #fff;
+  --secondary: #20232b;
+  --secondary-foreground: #f8faff;
+  --muted: #20232b;
+  --muted-foreground: #c4cad4;
+  --accent: color-mix(in srgb, var(--numina-accent) 12%, transparent);
+  --accent-foreground: var(--numina-accent);
+
+  /* Lighter than the light-mode value so it still reads against the dark
+     background, dark enough to carry white text on a filled button. */
+  --destructive: #f0575c;
+  --destructive-foreground: #fff;
+  --border: #4f5663;
+  --input: #4f5663;
+  --ring: var(--numina-accent);
+
+  /* ─── Application design tokens (dark overrides) ──────────────────────────
+     Dark values for the application tokens defined in `:root` above. Tokens defined as `var(...)` in
+     `:root` (--text-primary, --text-muted, --text-on-accent) inherit their dark
+     value automatically and are not repeated here; --space-*, --text-* sizes,
+     --font-weight-*, --radius-full and --badge-theorem-border don't shift in
+     dark mode so they're also omitted. */
+
+  /* Core surfaces / borders */
+  --numina-bg-gradient-end: #13151a;
+  --numina-surface-sunken: #14161d;
+  --numina-border-strong: #616776;
+  --numina-info: #8cc4ff;
+
+  /* Overlays / hover / chat surfaces */
+  --accent-overlay: color-mix(in srgb, var(--numina-accent) 22%, transparent);
+  --accent-overlay-soft: color-mix(in srgb, var(--numina-accent) 12%, transparent);
+  --hover-overlay: rgb(255 255 255 / 6%);
+  --hover-overlay-strong: rgb(255 255 255 / 10%);
+  --row-hover-bg: rgb(255 255 255 / 4%);
+  --scrollbar-thumb: rgb(255 255 255 / 20%);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 30%);
+  --user-bubble-bg: #292d3a;
+  --pending-user-bubble-bg: #373c49;
+  --chat-panel-bg: #171c24;
+  --dark-tooltip-bg: rgb(0 0 0 / 75%);
+  --dark-tooltip-text: #f3eee5;
+
+  /* Subagent shimmer */
+  --subagent-shimmer-base: var(--text-muted);
+  --subagent-shimmer-highlight: var(--text-primary);
+
+  /* Tool-call diff / write previews (CodeMirror themes) */
+  --diff-write-bg: #1a2420;
+  --diff-write-gutter-bg: #1d2a25;
+  --diff-write-border: #2a4a3a;
+  --diff-deletion-bg: #2a1818;
+  --diff-deletion-highlight: rgb(239 68 68 / 35%);
+  --diff-insertion-bg: #15241c;
+  --diff-insertion-highlight: rgb(34 197 94 / 30%);
+  --editor-selection-bg: rgb(165 199 255 / 25%);
+
+  /* Shadow */
+  --shadow-sm: 0 1px 4px rgb(0 0 0 / 30%);
+  --shadow-md: 0 3px 10px rgb(0 0 0 / 45%);
+  --shadow-lg: 0 6px 20px rgb(0 0 0 / 45%);
+  --shadow-xl: 0 8px 24px -12px rgb(0 0 0 / 55%), 0 2px 6px -2px rgb(0 0 0 / 40%);
+
+  /* Semantic text colors (distinct dark value) */
+  --text-body: #e0e5ee;
+
+  /* Formalization status text / bg */
+  --status-unformalized-bg: rgba(239, 68, 68, 0.18);
+  --status-unformalized-text: #ff8585;
+  --status-unformalized-fill: #ef4444;
+  --status-formalized-bg: rgba(234, 179, 8, 0.18);
+  --status-formalized-text: #f0c948;
+  --status-formalized-fill: #eab308;
+  --status-proved-bg: rgba(34, 197, 94, 0.18);
+  --status-proved-text: #5ed98a;
+  --status-proved-fill: #22c55e;
+  --status-verified-bg: rgba(34, 197, 94, 0.18);
+  --status-verified-text: #5ed98a;
+  --status-verified-fill: #22c55e;
+
+  /* Semantic status error (general CRUD / error UI). */
+  --numina-error: #ff8585;
+
+  /* Warning banner. */
+  --warning-bg: #2a2618;
+  --warning-border: #3a3424;
+  --warning-text: #ffd494;
+
+  /* Build / LSP diagnostics */
+  --build-error: #ff6b6b;
+  --build-error-strong: #ff5252;
+  --build-warning: #ffb454;
+
+  /* Kind badge (theorem) */
+  --badge-theorem-bg: rgba(96, 165, 250, 0.18);
+  --badge-theorem-text: #a5c7ff;
+
+  /* Code viewer */
+  --code-bg: #101217;
+  --code-border: #24252e;
+  --code-header-bg: #191a22;
+  --code-header-text: #d4dae5;
+  --code-line-number: #aab4c3;
+
+  /* Syntax highlighting (hljs / Lean) */
+  --syntax-keyword: #f4ccff;
+  --syntax-built-in: #e8b8f8;
+  --syntax-comment: #dde4ed;
+  --syntax-string: #a0ffba;
+  --syntax-number: #ffd494;
+  --syntax-symbol: #ffb8b8;
+  --syntax-attr: #f8e088;
+
+  /* Syntax highlighting (Prism / LaTeX) */
+  --syntax-latex-function: #5fcbb0;
+  --syntax-latex-keyword: #ff9a5a;
+  --syntax-latex-punctuation: #9aa6b3;
+  --syntax-latex-equation: #6dd58e;
+  --syntax-latex-command: #ffa970;
+  --syntax-latex-structure-command: #8cc4ff;
+  --syntax-latex-structure-name: #a5c7ff;
+  --syntax-latex-comment: #b8a890;
+
+  color-scheme: dark;
+}
+
+/* The body background is a literal gradient (not a token), so dark mode needs
+   its own override to swap the light gradient for the dark surface. */
+.dark body {
+  background: linear-gradient(180deg, #13151a 0%, #13151a 100%);
+}
+
+/* ─── Global Base ────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    font-family: var(--numina-font-sans);
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--numina-bg) 0%, var(--numina-bg-gradient-end) 100%);
+    background-attachment: fixed;
+    color: var(--numina-text);
+    min-height: 100vh;
+  }
+}
+
+/* ─── Numina Component Classes ───────────────────────────────────────────── */
+
+@layer components {
+  .page-bg {
+    background: linear-gradient(180deg, var(--numina-bg) 0%, var(--numina-bg-gradient-end) 100%);
+  }
+
+  /* Applied to #root while a dialog that is typed into is open, as a standing
+     substitute for that dialog overlay's backdrop blur. The overlay's
+     `backdrop-filter` samples the page live and is re-evaluated whenever
+     anything repaints within the overlay's area -- which includes the dialog
+     itself -- so typing re-blurred the whole viewport every frame. The page
+     does not change while a dialog is up, so blurring it directly is
+     rasterized once and reused, and the dialog (portaled to <body>, outside
+     this subtree) repaints on its own. Radius matches `backdrop-blur-xs`. */
+  .page-behind-dialog-blurred {
+    filter: blur(var(--blur-xs));
+  }
+
+  /* Cards */
+  .numina-card {
+    background: var(--numina-card-bg);
+    border: 1px solid var(--numina-border);
+    border-radius: var(--numina-radius);
+    box-shadow: var(--numina-shadow);
+  }
+
+  .numina-card-sm {
+    background: var(--numina-card-bg);
+    border: 1px solid var(--numina-border);
+    border-radius: var(--numina-radius-sm);
+  }
+
+  /* Buttons */
+  .btn-primary {
+    background: var(--numina-red);
+    color: white;
+    border-radius: var(--numina-radius-pill);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+  }
+  .btn-primary:hover {
+    background: var(--numina-red-hover);
+  }
+
+  .btn-accent {
+    background: var(--numina-accent);
+    color: white;
+    border-radius: var(--numina-radius-pill);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 1.25rem;
+    transition: background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+  }
+  .btn-accent:hover {
+    background: var(--numina-accent-hover);
+  }
+
+  .btn-outline-accent,
+  .btn-outline-destructive {
+    background: transparent;
+    color: var(--numina-accent);
+    border: 1.5px solid var(--numina-accent);
+    border-radius: var(--numina-radius-pill);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 1.25rem;
+    transition: opacity 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-outline-destructive {
+    color: var(--destructive);
+    border-color: var(--destructive);
+  }
+  .btn-outline-accent:hover,
+  .btn-outline-destructive:hover {
+    opacity: 0.8;
+  }
+  .btn-outline-accent:disabled,
+  .btn-outline-destructive:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: none;
+    color: var(--numina-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--numina-radius-sm);
+    transition: color 0.15s, background 0.15s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .btn-ghost:hover {
+    color: var(--numina-text);
+    background: rgba(0, 0, 0, 0.04);
+  }
+
+  /* Frosted glass header */
+  .numina-header {
+    background: var(--numina-card-bg-translucent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--numina-border-light);
+  }
+
+  /* Status badges */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .status-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-active    { background: #fdf6d0; color: #9a8000; }
+  .status-active::before    { background: #d4b216; }
+  .status-running   { background: #fdf6d0; color: #9a8000; }
+  .status-running::before   { background: #d4b216; }
+  .status-completed { background: #d4edda; color: #1e7e34; }
+  .status-completed::before { background: #28a745; }
+
+  .status-paused    { background: #fce4cc; color: #c45e12; }
+  .status-paused::before    { background: #e8760a; }
+  .status-waiting_user { background: #fce4cc; color: #c45e12; }
+  .status-waiting_user::before { background: #e8760a; }
+
+  .status-queued    { background: #fdf6d0; color: #9a8000; }
+  .status-queued::before    { background: #d4b216; }
+  .status-pending   { background: #fdf6d0; color: #9a8000; }
+  .status-pending::before   { background: #d4b216; }
+
+  .status-failed    { background: #fce0de; color: #c0392b; }
+  .status-failed::before    { background: #e74c3c; }
+
+  .status-cancelled { background: #e8e4df; color: #8a8278; }
+  .status-cancelled::before { background: #b0a99e; }
+  .status-archived  { background: #e8e4df; color: #8a8278; }
+  .status-archived::before  { background: #b0a99e; }
+}
+
+/* ─── Prose inside message bubbles ──────────────────────────────────────── */
+
+.prose-bubble {
+  line-height: 1.6;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+.prose-bubble p {
+  margin: 0.4em 0;
+}
+.prose-bubble p:first-child {
+  margin-top: 0;
+}
+.prose-bubble p:last-child {
+  margin-bottom: 0;
+}
+.prose-bubble strong {
+  font-weight: 600;
+}
+.prose-bubble code {
+  font-family: var(--numina-font-mono);
+  font-size: 0.8em;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+.prose-bubble pre {
+  margin: 0.5em 0;
+  padding: 0.75em;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: var(--numina-font-mono);
+  font-size: 0.8em;
+  line-height: 1.5;
+}
+.prose-bubble pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+.prose-bubble ul, .prose-bubble ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+.prose-bubble li {
+  margin: 0.2em 0;
+}
+.prose-bubble h1, .prose-bubble h2, .prose-bubble h3 {
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+.prose-bubble h1 { font-size: 1.1em; }
+.prose-bubble h2 { font-size: 1em; }
+.prose-bubble h3 { font-size: 0.95em; }
+.prose-bubble a {
+  color: var(--numina-accent);
+  text-decoration: underline;
+}
+.prose-bubble blockquote {
+  border-left: 3px solid var(--numina-border);
+  padding-left: 0.75em;
+  margin: 0.4em 0;
+  color: var(--numina-text-muted);
+}
+.prose-bubble hr {
+  border: none;
+  border-top: 1px solid var(--numina-border-light);
+  margin: 0.6em 0;
+}
+/* Wrap tables in a horizontally scrollable container so wide tables don't
+   break the bubble layout. react-markdown emits <table> directly so we
+   apply overflow via display:block on the table itself. */
+.prose-bubble table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.85em;
+  white-space: normal;
+}
+.prose-bubble th, .prose-bubble td {
+  border: 1px solid var(--numina-border-light);
+  padding: 0.35em 0.6em;
+  text-align: left;
+  word-break: break-word;
+  max-width: 24em;
+}
+.prose-bubble th {
+  background: rgba(0, 0, 0, 0.03);
+  font-weight: 600;
+}
+.prose-bubble tr:nth-child(even) {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+/* Blueprint Timeline doc-reading view. Inherits the prose-bubble base (code,
+   lists, tables) but loosens typography for long, math-heavy Progress /
+   Open-issues prose: larger body text, generous line-height so tall inline
+   KaTeX (fractions, super/subscripts) has room, and clear paragraph spacing
+   so distinct points read as distinct blocks instead of one dense wall. */
+.blueprint-prose {
+  font-size: 0.9375rem;
+  line-height: 1.85;
+}
+.blueprint-prose p { margin: 0 0 1.1em; }
+.blueprint-prose p:last-child { margin-bottom: 0; }
+.blueprint-prose .katex { font-size: 1.03em; }
+.blueprint-prose .katex-display {
+  margin: 1.25em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+.blueprint-prose ul, .blueprint-prose ol { margin: 0.7em 0; padding-left: 1.4em; }
+.blueprint-prose li { margin: 0.35em 0; }
+.blueprint-prose h2, .blueprint-prose h3 { margin: 1.1em 0 0.4em; }
+
+/* Blueprint editor annotation cards. */
+@layer components {
+  .math-card {
+    min-width: 0;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--numina-border);
+    border-radius: var(--radius-md);
+    background: var(--numina-card-bg);
+    box-shadow: var(--numina-shadow);
+  }
+  .card-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+  .card-header-badges {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .ann-badge {
+    flex-shrink: 0;
+    padding: 2px 7px;
+    border: 1px solid var(--numina-accent);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--numina-accent);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .ann-status-badge {
+    padding: 2px 7px;
+    border-radius: var(--radius-full);
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+  .ann-title {
+    color: var(--ann-title);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .ann-statement {
+    margin-bottom: var(--space-2);
+    color: var(--ann-statement);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .ann-statement .latex-list {
+    margin: var(--space-1) 0;
+    padding-left: var(--space-6);
+  }
+  .ann-statement .latex-list li { margin-bottom: 2px; }
+  .ann-details {
+    color: var(--ann-body);
+    font-size: var(--text-sm);
+    overflow-wrap: anywhere;
+  }
+  .ann-details summary {
+    cursor: pointer;
+    color: var(--ann-summary);
+    font-size: var(--text-xs);
+    font-weight: 500;
+  }
+  .ann-details summary:hover { color: var(--ann-summary-hover); }
+  .ann-details p {
+    margin-top: var(--space-1);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  .ann-details + .ann-details { margin-top: var(--space-2); }
+  .ann-deps {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+  }
+  .dep-tag {
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--dep-tag-bg);
+    color: var(--dep-tag-text);
+    font-size: var(--text-xs);
+    overflow-wrap: anywhere;
+  }
+}
+
+/* ─── Animations ─────────────────────────────────────────────────────────── */
+
+@keyframes numina-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes numina-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+@keyframes numina-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.45; }
+}
+@keyframes numina-typing {
+  0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+  30%           { opacity: 1;   transform: scale(1); }
+}
+
+@keyframes navigation-progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.navigation-progress-indicator {
+  height: 100%;
+  width: 40%;
+  background: var(--numina-accent);
+  animation: navigation-progress-slide 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navigation-progress-indicator {
+    width: 100%;
+    animation: none;
+  }
+}
+
+.animate-numina-spin    { animation: numina-spin    0.8s linear infinite; }
+.animate-numina-blink   { animation: numina-blink   1.2s ease-in-out infinite; }
+.animate-numina-pulse   { animation: numina-pulse   1.5s ease-in-out infinite; }
+.animate-numina-typing  { animation: numina-typing  1.4s ease-in-out infinite; }
+
+/* ─── Blueprint document rendering (renderMath output) ──────────────────────
+   Global classes emitted as raw HTML by `src/lib/render-math.ts` and painted
+   via `dangerouslySetInnerHTML` (HomeMode, EditMode cards, GraphMode /
+   SectionSelector labels, BlueprintShowcase). Only the rules renderMath
+   emits are included. KaTeX's own styles come from katex.min.css.
+   In @layer components so `.latex-list` list-style/padding beats preflight. */
+
+@layer components {
+  /* Blank-line paragraph break emitted for LaTeX paragraph boundaries. */
+  .paragraph-break {
+    display: block;
+    height: 0.7em;
+  }
+
+  /* \begin{itemize}/\begin{enumerate}: restore bullets/indent Tailwind's
+     preflight strips from <ul>/<ol>. */
+  .latex-list {
+    margin: 0.6em 0;
+    padding-left: 1.5em;
+  }
+  ul.latex-list { list-style: disc; }
+  ol.latex-list { list-style: decimal; }
+  .latex-list li { margin-bottom: 0.35em; }
+  .latex-list li:last-child { margin-bottom: 0; }
+
+  /* Chapter prose wrapper. Resets the per-kind declaration counters so each
+     chapter numbers from one; declarations self-number via ::before. */
+  .doc-body {
+    font-size: var(--text-sm);
+    line-height: 1.7;
+    color: var(--text-primary);
+    /* leanblueprint-style ``section.item`` numbering: one shared item counter
+       per section (Definition 2.1, Lemma 2.2, …), prefixed by the section
+       number. ``doc-section`` defaults to 1; the reading view overrides it per
+       section via an inline counter-reset (HomeMode). */
+    counter-reset: doc-item 0 doc-section 1 doc-subsection 0 doc-subsubsection 0;
+  }
+
+  /* \href{}/\url{} anchors emitted by mathRender. Accent colour +
+     underline-on-hover so they read unambiguously as links against
+     the chapter prose. */
+  .doc-body a {
+    color: var(--numina-accent);
+    text-decoration: none;
+    border-bottom: 1px solid color-mix(in srgb, var(--numina-accent) 40%, transparent);
+    transition: border-color 0.12s, color 0.12s;
+  }
+
+  .doc-body a:hover,
+  .doc-body a:focus-visible {
+    border-bottom-color: var(--numina-accent);
+    outline: none;
+  }
+
+  .doc-chapter {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    margin: 0 0 0.6em;
+    color: var(--text-primary);
+    line-height: 1.25;
+  }
+
+  .doc-chapter-file {
+    margin: calc(var(--space-1) * -1) 0 var(--space-4);
+    color: var(--text-muted);
+    font-family: var(--numina-font-mono, monospace);
+    font-size: var(--text-xs);
+  }
+
+  .doc-section {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    margin: 1.6em 0 0.4em;
+    color: var(--text-primary);
+  }
+
+  /* Prefix the section heading with its number ("5. Title"). ``doc-section`` is
+     seeded per section by the reading view (HomeMode's inline counter-reset). */
+  .doc-section::before {
+    content: counter(doc-section) ". ";
+  }
+
+  .doc-section:first-child {
+    margin-top: 0;
+  }
+
+  .doc-subsection {
+    font-size: var(--text-base);
+    font-weight: 600;
+    margin: 1.2em 0 0.3em;
+  }
+
+  /* Number each subsection ("9.1. Title") so a \ref that resolves to "9.1"
+     names something the reader can find on the page. Counts within the
+     section, matching the numbering in ``documentRefs``. Entering a
+     subsection resets the subsubsection counter, as ``numberForHeading`` does. */
+  .doc-subsection {
+    counter-reset: doc-subsubsection 0;
+  }
+
+  .doc-subsection::before {
+    counter-increment: doc-subsection;
+    content: counter(doc-section) "." counter(doc-subsection) ". ";
+  }
+
+  /* Number each subsubsection ("9.1.1. Title") to match documentRefs. */
+  .doc-subsubsection::before {
+    counter-increment: doc-subsubsection;
+    content: counter(doc-section) "." counter(doc-subsection) "." counter(doc-subsubsection) ". ";
+  }
+
+  .doc-subsubsection,
+  .doc-paragraph {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    margin: 1em 0 0.25em;
+  }
+
+  .doc-decl {
+    margin: 1.25em 0;
+  }
+
+  .doc-decl-head {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .doc-decl-title {
+    font-weight: 600;
+  }
+
+  .doc-decl-period {
+    margin-left: 0;
+  }
+
+  /* Pill in the declaration heading. Uses the shared .status-*
+     colour modifiers so it matches the badges elsewhere in the app. */
+  .doc-decl-status {
+    display: inline-block;
+    margin-left: 0.5em;
+    padding: 1px 7px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    border-radius: var(--radius-full);
+    vertical-align: 0.05em;
+  }
+
+  /* Compact metadata rows sit between the heading and the body. The
+     Lean identifier gets the accent so it visually ties to the
+     formalization, and stands out from the muted Uses row right
+     below it. */
+  /* The declaration's own blueprint label (its \label tag), so it can be
+     matched to a ``Uses: def:foo`` reference. Muted — it's an identifier,
+     not prose — and set above the Lean name. */
+  .doc-decl-tag {
+    font-family: var(--numina-font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    margin-top: 0.15em;
+    word-break: break-all;
+  }
+
+  .doc-decl-lean {
+    font-family: var(--numina-font-mono);
+    font-size: var(--text-xs);
+    color: var(--numina-accent);
+    margin-top: 0.15em;
+    word-break: break-all;
+  }
+
+  /* Only Lean names that resolve to a .lean file are links (renderMath emits
+     ``is-linked`` from HomeMode's resolved target labels); clicking opens the file. */
+  .doc-decl-lean.is-linked {
+    cursor: pointer;
+  }
+
+  .doc-decl-lean.is-linked:hover {
+    text-decoration: underline;
+  }
+
+  /* Uses is a collapsible disclosure (like the Proof block), so the
+     dependency list stays out of the way until expanded. */
+  .doc-decl-uses {
+    margin-top: 0.35em;
+  }
+
+  /* When Uses is grouped right under Proof, pull it up to close the gap the
+     proof block's bottom margin (1.25em) would otherwise leave. */
+  .doc-proof + .doc-decl-uses {
+    margin-top: -0.9em;
+  }
+
+  .doc-decl-uses-summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-style: italic;
+    color: var(--text-muted);
+    list-style: none;
+    user-select: none;
+  }
+
+  .doc-decl-uses-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .doc-decl-uses-summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    font-style: normal;
+    font-size: 0.85em;
+    transition: transform 0.12s ease;
+  }
+
+  .doc-decl-uses[open] > .doc-decl-uses-summary::before {
+    transform: rotate(90deg);
+  }
+
+  .doc-decl-uses-list {
+    margin-top: 0.3em;
+    padding-left: 1em;
+    font-family: var(--numina-font-mono);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  /* Each \uses reference links to its declaration (navigation handled in
+     HomeMode). Must out-specify the generic ``.doc-body a`` link style
+     (accent + border-bottom) so refs stay muted grey with no underline
+     until hover, then turn accent + underline. */
+  .doc-decl-uses-ref {
+    cursor: pointer;
+  }
+
+  .doc-body a.doc-decl-uses-ref {
+    color: var(--text-muted);
+    border-bottom: none;
+    text-decoration: none;
+  }
+
+  .doc-body a.doc-decl-uses-ref:hover,
+  .doc-body a.doc-decl-uses-ref:focus-visible {
+    color: var(--numina-accent);
+    border-bottom-color: transparent;
+    text-decoration: underline;
+    outline: none;
+  }
+
+  /* Inline \ref / \cref links to a declaration: accent (orange) by default,
+     underline on hover (unlike the muted-until-hover Uses links). Inline
+     \ref / \eqref links to a heading or an equation read the same way. */
+  .doc-body a.doc-decl-ref,
+  .doc-body a.doc-doc-ref {
+    color: var(--numina-accent);
+    border-bottom: none;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
+  .doc-body a.doc-decl-ref:hover,
+  .doc-body a.doc-decl-ref:focus-visible,
+  .doc-body a.doc-doc-ref:hover,
+  .doc-body a.doc-doc-ref:focus-visible {
+    text-decoration: underline;
+    outline: none;
+  }
+
+  /* A labelled display equation: the KaTeX block in its own column with the
+     number beside it, the way a LaTeX build tags it. The wrapper is the
+     scroll target for an \eqref. Math and tag are separate flex columns so a
+     wide equation scrolls within its column instead of running under the tag. */
+  .doc-equation {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1em 0;
+  }
+
+  .doc-equation .katex-display {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    margin: 0;
+  }
+
+  .doc-equation-tag {
+    flex-shrink: 0;
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+  }
+
+  /* Rows of a multi-label environment (align, gather) that aren't the first:
+     a zero-size anchor so an \eqref to them still scrolls to this display. */
+  .doc-equation-anchor {
+    position: absolute;
+    top: 0;
+  }
+
+  .doc-decl-body {
+    margin-top: 0.35em;
+  }
+
+  /* Italic body for "stated" declarations, plain body for definitions
+     and remarks — matches plasTeX / amsthm conventions. */
+  .doc-decl-theorem .doc-decl-body,
+  .doc-decl-lemma .doc-decl-body,
+  .doc-decl-corollary .doc-decl-body,
+  .doc-decl-proposition .doc-decl-body,
+  .doc-decl-axiom .doc-decl-body,
+  .doc-decl-conjecture .doc-decl-body,
+  .doc-decl-hypothesis .doc-decl-body,
+  .doc-decl-claim .doc-decl-body,
+  .doc-decl-assumption .doc-decl-body {
+    font-style: italic;
+  }
+
+  /* One shared item counter across all declaration kinds, prefixed by the
+     section number, so numbering reads ``Definition 2.1``, ``Lemma 2.2``, …
+     in rendering order (leanblueprint convention). */
+  .doc-decl-definition .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Definition " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-theorem .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Theorem " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-lemma .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Lemma " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-corollary .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Corollary " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-proposition .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Proposition " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-axiom .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Axiom " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-conjecture .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Conjecture " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-example .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Example " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-hypothesis .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Hypothesis " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-claim .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Claim " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-assumption .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Assumption " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-remark .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Remark " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-decl-notation .doc-decl-counter::before {
+    counter-increment: doc-item;
+    content: "Notation " counter(doc-section) "." counter(doc-item);
+  }
+
+  .doc-proof {
+    margin: 0.8em 0 1.25em;
+  }
+
+  .doc-proof-summary {
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-style: italic;
+    color: var(--text-muted);
+    list-style: none;
+    user-select: none;
+  }
+
+  .doc-proof-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .doc-proof-summary::before {
+    content: "▸";
+    display: inline-block;
+    width: 1em;
+    font-style: normal;
+    font-size: 0.85em;
+    transition: transform 0.12s ease;
+  }
+
+  .doc-proof[open] > .doc-proof-summary::before {
+    transform: rotate(90deg);
+  }
+
+  .doc-proof-body {
+    margin-top: 0.4em;
+    padding-left: 1em;
+    border-left: 1px solid var(--numina-border-light);
+  }
+
+  .doc-qed {
+    margin-left: 0.4em;
+    color: var(--text-muted);
+  }
+
+  .history-session-list {
+    position: relative;
+  }
+
+  .history-session-list::before {
+    content: "";
+    display: block;
+    height: 1px;
+    background: var(--numina-border-light);
+    transition: opacity 0.15s;
+  }
+
+  .history-session-row {
+    position: relative;
+    z-index: 0;
+    border: 0;
+    background: transparent;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .history-session-row::before {
+    content: "";
+    position: absolute;
+    inset: -1px 0;
+    z-index: -1;
+    border-radius: var(--radius-md);
+    background: transparent;
+    transition: background 0.15s;
+  }
+
+  .history-session-row::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 1px;
+    background: var(--numina-border-light);
+  }
+
+  .history-session-row:hover {
+    z-index: 1;
+  }
+
+  .history-session-row:hover::before {
+    background: var(--row-hover-bg);
+  }
+
+  .history-session-list:has(.history-session-row:first-child:hover)::before,
+  .history-session-row:hover::after,
+  .history-session-row:has(+ .history-session-row:hover)::after {
+    opacity: 0;
+  }
+
+  /* Formalization status pills (outlined). renderMath emits status-proved /
+     status-formalized / status-unformalized on declaration headings;
+     components (chat tokens, subagent cards, diff rows) also use status-verified. */
+  .status-verified {
+    background: transparent;
+    color: var(--status-verified-text);
+    border: 1px solid var(--status-verified-text);
+  }
+  .status-proved {
+    background: transparent;
+    color: var(--status-proved-text);
+    border: 1px solid var(--status-proved-text);
+  }
+  .status-formalized {
+    background: transparent;
+    color: var(--status-formalized-text);
+    border: 1px solid var(--status-formalized-text);
+  }
+  .status-unformalized {
+    background: transparent;
+    color: var(--status-unformalized-text);
+    border: 1px solid var(--status-unformalized-text);
+  }
+}

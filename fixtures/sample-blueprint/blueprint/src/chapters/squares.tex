@@ -1,0 +1,27 @@
+\chapter{Squares}
+\label{chap:squares}
+
+\begin{definition}[Square]
+  \label{def:square}
+  \lean{square}
+  \leanok
+  The \emph{square} of $n$ is $n^2 = n \cdot n$.
+\end{definition}
+
+\begin{theorem}[Squares dominate doubles]
+  \label{thm:twice-le-square}
+  \lean{twice_le_square}
+  \uses{def:twice, def:square}
+  \leanok
+  If $n \ge 2$ then $2n \le n^2$.
+\end{theorem}
+\begin{proof}
+  \uses{thm:twice-eq}
+  Since $n \ge 2$, multiplying both sides by $n$ gives $2n \le n \cdot n$.
+\end{proof}
+
+\begin{conjecture}[Cubes]
+  \label{conj:cube}
+  \uses{def:square}
+  For $n \ge 3$, $n^2 \le n^3$.
+\end{conjecture}

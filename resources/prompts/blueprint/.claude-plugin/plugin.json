@@ -1,0 +1,8 @@
+{
+  "name": "fuse",
+  "version": "0.1.0",
+  "description": "Fuse Desktop blueprint roles: writer, reviewer, formalizer, prover, golfer and explorer subagents for Lean 4 blueprint formalization.",
+  "author": {
+    "name": "Numina"
+  }
+}

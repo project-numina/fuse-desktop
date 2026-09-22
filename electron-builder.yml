@@ -1,0 +1,51 @@
+appId: org.numina.fuse-desktop
+productName: Fuse
+# The .deb target requires a project homepage and a maintainer address that
+# package.json does not carry (the app lives inside the monorepo).
+extraMetadata:
+  homepage: https://projectnumina.ai
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**
+  - package.json
+# The MCP server is spawned by the CLIs as a plain script, and the prompt
+# resources are read at runtime, so both must exist outside app.asar.
+asarUnpack:
+  - out/main/mcp-server.js
+  - out/main/chunks/**
+extraResources:
+  - from: resources/icon.png
+    to: resources/icon.png
+  - from: resources/prompts
+    to: resources/prompts
+asar: true
+npmRebuild: false
+mac:
+  icon: resources/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  artifactName: ${productName}-${version}-mac-${arch}.${ext}
+win:
+  target:
+    - nsis
+  artifactName: ${productName}-${version}-win-${arch}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+linux:
+  category: Development
+  maintainer: Numina <contact@projectnumina.ai>
+  vendor: Numina
+  target:
+    - AppImage
+    - deb
+  artifactName: ${productName}-${version}-linux-${arch}.${ext}
+publish:
+  provider: github
+  owner: project-numina
+  repo: fuse-desktop
+  releaseType: draft

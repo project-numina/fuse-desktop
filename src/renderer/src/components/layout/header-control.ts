@@ -1,0 +1,2 @@
+export const headerControlClass =
+  'relative inline-flex h-9 w-10 shrink-0 cursor-pointer items-center justify-center rounded-[8px] border border-border bg-muted/35 text-[var(--text-body)] shadow-[0_1px_1px_rgb(0_0_0/0.04)] transition-colors hover:border-muted-foreground/50 hover:bg-muted hover:text-foreground active:bg-foreground/10 focus-visible:outline-2 focus-visible:outline-muted-foreground focus-visible:outline-offset-2 data-popup-open:border-muted-foreground/50 data-popup-open:bg-muted data-popup-open:text-foreground';

@@ -1,0 +1,296 @@
+.subagent-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  background: var(--numina-card-bg);
+  border: 1px solid var(--numina-border-light);
+  border-radius: var(--radius-lg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.subagent-card:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+}
+
+.subagent-card.is-explore {
+  cursor: default;
+}
+
+.subagent-card.is-explore:hover {
+  border-color: var(--numina-border-light);
+  box-shadow: none;
+}
+
+.subagent-card .card-top,
+.subagent-group .row-top {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.subagent-card .card-top-left,
+.subagent-group .row-top-left {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.subagent-card .status-dot,
+.subagent-group .status-dot {
+  align-self: center;
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.subagent-card .dot-queued,
+.subagent-group .dot-queued {
+  background: transparent;
+  border: 1.5px solid var(--text-muted);
+}
+
+.subagent-card .dot-running,
+.subagent-group .dot-running {
+  background: var(--numina-info);
+}
+
+.subagent-card .dot-proved,
+.subagent-card .dot-done,
+.subagent-group .dot-proved,
+.subagent-group .dot-done {
+  background: var(--status-proved-text);
+}
+
+.subagent-card .dot-failed,
+.subagent-group .dot-failed {
+  background: var(--status-unformalized-text);
+}
+
+.subagent-card .dot-cancelled,
+.subagent-group .dot-cancelled {
+  background: var(--text-muted);
+}
+
+.subagent-card .pass-badge,
+.subagent-group .pass-badge {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.subagent-card .description,
+.subagent-group .description {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background-clip: text;
+}
+
+.subagent-card.running .description,
+.subagent-group .subagent-row.running .description {
+  color: transparent;
+  background-image: linear-gradient(
+    90deg,
+    var(--subagent-shimmer-base) 0%,
+    var(--subagent-shimmer-base) 25%,
+    var(--subagent-shimmer-highlight) 45%,
+    var(--subagent-shimmer-highlight) 55%,
+    var(--subagent-shimmer-base) 75%,
+    var(--subagent-shimmer-base) 100%
+  );
+  background-size: 200% 100%;
+  animation: subagent-shimmer 2s ease-in-out infinite;
+}
+
+@keyframes subagent-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.subagent-card .card-top-right,
+.subagent-group .row-top-right {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+}
+
+.subagent-card .call-count,
+.subagent-group .call-count {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* How long the agent has been going, ahead of its call count. Tabular figures
+   so a ticking duration does not shift the count beside it every second. */
+.subagent-card .run-duration,
+.subagent-group .run-duration {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Separator, rather than a wider gap, so the pair reads as one summary. Kept
+   out of the DOM text so the duration itself stays cleanly selectable. */
+.subagent-card .run-duration::after,
+.subagent-group .run-duration::after {
+  padding-left: 8px;
+  content: "·";
+}
+
+.subagent-card .arrow-icon,
+.subagent-group .arrow-icon {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+}
+
+.subagent-card .card-calls,
+.subagent-group .row-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.subagent-card .card-call-row,
+.subagent-preview-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.subagent-card .card-call-label,
+.subagent-preview-label {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--numina-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subagent-card .card-call-count,
+.subagent-preview-count {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.subagent-group {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--numina-card-bg);
+  border: 1px solid var(--numina-border-light);
+  border-radius: var(--radius-lg);
+}
+
+.subagent-group .batch-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--numina-border-light);
+}
+
+.subagent-group .batch-title {
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.subagent-group .batch-counts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.subagent-group .count-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.subagent-group .batch-progress {
+  display: flex;
+  height: 4px;
+  overflow: hidden;
+  background: var(--numina-border-light);
+  border-radius: var(--radius-full);
+}
+
+.subagent-group .batch-progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.subagent-group .batch-progress-success {
+  background: var(--status-proved-text);
+}
+
+.subagent-group .batch-progress-failed {
+  background: var(--status-unformalized-text);
+}
+
+.subagent-group .batch-progress-cancelled {
+  background: var(--text-muted);
+}
+
+.subagent-group .subagent-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 14px;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--numina-border-light);
+  transition: background 0.15s;
+}
+
+.subagent-group .subagent-row:last-child {
+  border-bottom: none;
+}
+
+.subagent-group .subagent-row:hover {
+  background: var(--row-hover-bg);
+}
+
+.subagent-group .row-recent-list {
+  min-width: 0;
+}
+
+.subagent-group .row-recent {
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
