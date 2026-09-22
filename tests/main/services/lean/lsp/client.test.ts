@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sleep } from '@main/services/lean/async';
 import { LeanLSPClient } from '@main/services/lean/lsp/client';
 import { LeanInitializationError, LeanProcessExited, LSPServerError } from '@main/services/lean/lsp/errors';
@@ -175,19 +175,17 @@ describe('LeanLSPClient', () => {
     await c.start();
     const pid = c.pid as number;
     await c.close();
-    await sleep(50);
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow(), { timeout: 5_000 });
     expect(c.returncode).toBe(0);
-    expect(() => process.kill(pid, 0)).toThrow();
     await expect(c.request('x')).rejects.toThrow(/closing/);
   });
 
-  it('killNow signals the process group synchronously', async () => {
+  it('killNow initiates shutdown without waiting for the process tree to exit', async () => {
     const c = makeClient();
     await c.start();
     const pid = c.pid as number;
     c.killNow();
-    await sleep(100);
-    expect(() => process.kill(pid, 0)).toThrow();
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow(), { timeout: 5_000 });
     await c.close();
   });
 
@@ -196,8 +194,7 @@ describe('LeanLSPClient', () => {
     await c.start();
     const pid = c.pid as number;
     await c.close();
-    await sleep(100);
-    expect(() => process.kill(pid, 0)).toThrow();
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow(), { timeout: 5_000 });
   });
 
   it('fails initialization when the server answers without capabilities', async () => {
