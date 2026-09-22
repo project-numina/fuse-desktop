@@ -13,15 +13,19 @@ one place, using files in your own repository.
 
 ## Get started
 
-Installers aren't available yet. For now, run Fuse from source with Node.js 22.12+
-and Git:
+Install [Node.js 22.12+](https://nodejs.org) and Git, then run:
 
 ```bash
 git clone https://github.com/project-numina/fuse-desktop.git
 cd fuse-desktop
-npm ci
-npm run dev
+make app
 ```
+
+This installs dependencies and opens Fuse. Run `make app` again to reopen it;
+dependencies are reinstalled only when the dependency manifests change. Keep the
+terminal open while using Fuse; press Ctrl+C to stop it.
+
+On Windows, or if `make` isn't installed, run `npm ci` followed by `npm run dev` instead.
 
 To use an agent, install and sign in to [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 or [Codex](https://github.com/openai/codex). For Lean projects, install
