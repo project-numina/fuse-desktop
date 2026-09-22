@@ -71,7 +71,7 @@ const longFunctions = [];
 for (const file of sourceFiles) {
   const source = readFileSync(file, 'utf8');
   const nonblankLines = source.split(/\r?\n/).filter((line) => line.trim()).length;
-  const allowance = LARGE_FILE_ALLOWANCES.get(file) ?? FILE_SOFT_LIMIT;
+  const allowance = LARGE_FILE_ALLOWANCES.get(file.replaceAll('\\', '/')) ?? FILE_SOFT_LIMIT;
   if (nonblankLines > allowance) fileViolations.push({ file, nonblankLines, allowance });
   longFunctions.push(...inspectFunctions(file, source));
 }
