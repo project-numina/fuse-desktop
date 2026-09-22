@@ -41,7 +41,7 @@ jobs:
 
   package:
     needs: quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DISTRIBUTION_REVIEWED == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -57,7 +57,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run dist
+      - name: Smoke-test packaged app (Linux)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum node scripts/smoke-package.mjs
+      - name: Smoke-test packaged app (macOS and Windows)
+        if: runner.os != 'Linux'
+        run: node scripts/smoke-package.mjs
       - uses: actions/upload-artifact@v7
+        if: vars.DISTRIBUTION_REVIEWED == 'true'
         with:
           name: fuse-desktop-${{ matrix.os }}
           path: |
