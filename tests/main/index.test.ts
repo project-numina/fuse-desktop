@@ -273,7 +273,7 @@ describe('Electron main bootstrap', () => {
     const ipc = (channel: string) => electron.ipcHandlers.get(channel) as (...args: unknown[]) => unknown;
     const sender = {};
     expect(ipc(DESKTOP_IPC.navigationState)({ sender })).toEqual({ canGoBack: true, canGoForward: false, swipeEnabled: true });
-    expect(deps.pageNavigationState).toHaveBeenCalledWith(sender, true);
+    expect(deps.pageNavigationState).toHaveBeenCalledWith(sender, process.platform === 'darwin');
     expect(ipc(DESKTOP_IPC.navigationGo)({ sender }, -1)).toBe(true);
     expect(deps.navigatePage).toHaveBeenCalledWith(sender, -1);
     await expect(ipc(DESKTOP_IPC.providersDetect)()).resolves.toEqual([{ id: 'claude' }]);
