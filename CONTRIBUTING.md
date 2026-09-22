@@ -3,6 +3,9 @@
 This file records Fuse's TypeScript, Electron, and testing conventions. Contributions
 are submitted under AGPL-3.0-or-later unless explicitly stated otherwise.
 
+See the [developer reference](docs/development.md) for architecture, local setup,
+and release instructions.
+
 ## Before opening a pull request
 
 Run the checks that match the change:
