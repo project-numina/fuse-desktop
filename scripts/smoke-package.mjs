@@ -1,4 +1,7 @@
 import { spawn } from 'node:child_process';
+import process from 'node:process';
+import console from 'node:console';
+import { setTimeout, clearTimeout } from 'node:timers';
 import { existsSync, mkdtempSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';

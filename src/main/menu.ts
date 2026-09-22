@@ -133,6 +133,7 @@ export function buildApplicationMenu(ensureWindow: WindowFactory, checkForUpdate
       submenu: [
         ...(checkForUpdates ? [{ label: 'Check for Updates…', click: () => { void checkForUpdates(); } }, { type: 'separator' } as MenuItemConstructorOptions] : []),
         { label: 'Guide', click: () => send({ kind: 'navigate', path: '/guide' }) },
+        { label: 'Source Code and License', click: () => void shell.openExternal('https://github.com/project-numina/fuse-desktop') },
         { type: 'separator' },
         { label: 'Claude Code Documentation', click: () => void shell.openExternal('https://docs.anthropic.com/en/docs/claude-code') },
         { label: 'Codex Documentation', click: () => void shell.openExternal('https://github.com/openai/codex') },

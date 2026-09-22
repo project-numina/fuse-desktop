@@ -10,6 +10,9 @@ directories:
 files:
   - out/**
   - package.json
+  - LICENSE
+  - THIRD_PARTY.md
+  - licenses/**
 # The MCP server is spawned by the CLIs as a plain script, and the prompt
 # resources are read at runtime, so both must exist outside app.asar.
 asarUnpack:
