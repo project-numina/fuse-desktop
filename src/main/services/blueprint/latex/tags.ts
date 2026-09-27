@@ -80,7 +80,7 @@ function declarationRewrite(
   if (envEnd === null) return null;
   const bodyEnd = envEnd - `\\end{${kind}}`.length;
   const nested = nestedDeclarationSpans(source, structure, bodyStart, bodyEnd);
-  const label = ownerLabel(source, bodyStart, bodyEnd, nested);
+  const label = ownerLabel(source, structure, bodyStart, bodyEnd, nested);
   const tags = label === null ? undefined : tagsByLabel.get(label);
   if (label === null || tags === undefined) return null;
   const edits = statementEdits(source, bodyStart, bodyEnd, nested, proofSpansIn(blocks, bodyStart, bodyEnd), label, tags, newline);
@@ -134,7 +134,7 @@ function declarationTargets(source: string, tagsByLabel: ReadonlyMap<string, Dec
     if (envEnd === null) continue;
     const bodyEnd = envEnd - `\\end{${kind}}`.length;
     const nested = nestedDeclarationSpans(source, structure, bodyStart, bodyEnd);
-    const label = ownerLabel(source, bodyStart, bodyEnd, nested);
+    const label = ownerLabel(source, structure, bodyStart, bodyEnd, nested);
     if (label === null || !tagsByLabel.has(label)) continue;
     const proof = attributeProof(structure, blocks, starts, proves, { environmentEnd: envEnd, bodyStart, bodyEnd, nested, label });
     targets.set(label, [beginMatch.index, proof]);

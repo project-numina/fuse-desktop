@@ -1,4 +1,5 @@
 import {
+  capture,
   findAll,
   findFirst,
   LABEL_PATTERN,
@@ -48,9 +49,9 @@ export function proofSpansIn(blocks: readonly ProofBlock[], bodyStart: number, b
   return blocks.filter((block) => bodyStart <= block.start && block.start < bodyEnd).map((block) => [block.start, block.end]);
 }
 
-export function ownerLabel(source: string, bodyStart: number, bodyEnd: number, nested: readonly Span[]): string | null {
-  for (const match of findAll(LABEL_PATTERN, source, bodyStart, bodyEnd)) {
-    if (!withinAny(match.index, nested)) return match[1];
+export function ownerLabel(source: string, structure: string, bodyStart: number, bodyEnd: number, nested: readonly Span[]): string | null {
+  for (const match of findAll(LABEL_PATTERN, structure, bodyStart, bodyEnd)) {
+    if (!withinAny(match.index, nested)) return capture(source, match);
   }
   return null;
 }

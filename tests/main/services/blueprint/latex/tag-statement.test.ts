@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { maskLatexComments } from '@main/services/blueprint/latex/comments';
 import { applyEdits } from '@main/services/blueprint/latex/tag-edits';
 import {
   containsStandaloneLeanok,
@@ -11,7 +12,7 @@ describe('statement tag grammar', () => {
   it('finds the owner outside nested declaration spans', () => {
     const source = '\\label{outer}\n\\label{inner}\n';
     const inner = source.indexOf('\\label{inner}');
-    expect(ownerLabel(source, 0, source.length, [[inner, source.length]])).toBe('outer');
+    expect(ownerLabel(source, maskLatexComments(source), 0, source.length, [[inner, source.length]])).toBe('outer');
   });
 
   it('replaces a contiguous owned block in canonical order', () => {

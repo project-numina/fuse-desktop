@@ -37,6 +37,62 @@ function count(haystack: string, needle: string): number {
 }
 
 describe('rewriteTexTags', () => {
+  it.each(['\n', '\r\n'])('ignores commented owner labels with %j newlines', (newline) => {
+    const source = [
+      '\\begin{lemma}',
+      '% \\label{lem:old}',
+      '\\label{lem:x}',
+      '\\lean{Demo.x}',
+      'Statement.',
+      '\\end{lemma}',
+    ].join(newline);
+    expect(parseBlueprintDeclarations(source).map((entry) => entry.label)).toEqual(['lem:x']);
+    expect(rewriteTexTags(source, tags({ 'lem:old': { leanok: true } }))).toEqual({ source, matched: new Set() });
+
+    const requested = tags({ 'lem:x': { leanName: 'Demo.x', leanok: true } });
+    const result = rewriteTexTags(source, requested);
+    expect(result.matched).toEqual(new Set(['lem:x']));
+    expect(result.source).toBe(source.replace(`\\lean{Demo.x}${newline}`, `\\lean{Demo.x}${newline}\\leanok${newline}`));
+    expect(parseBlueprintDeclarations(result.source)).toEqual([
+      expect.objectContaining({ label: 'lem:x', leanName: 'Demo.x', statementLeanok: true }),
+    ]);
+    expect(rewriteTexTags(result.source, requested)).toEqual(result);
+  });
+
+  it('keeps commented labels out of nested proof rewrite ownership and batches', () => {
+    const source = [
+      '\\begin{theorem}',
+      '% \\label{lem:inner}',
+      '\\label{thm:outer}',
+      'Outer statement.',
+      '\\end{theorem}',
+      '\\begin{proof}',
+      'Outer proof.',
+      '\\begin{lemma}',
+      '% \\label{thm:outer}',
+      '\\label{lem:inner}',
+      'Inner statement.',
+      '\\end{lemma}',
+      '\\begin{proof}',
+      '\\end{proof}',
+      '\\end{proof}',
+    ].join('\n');
+    const requested = tags({
+      'thm:outer': { leanName: 'Demo.outer', leanok: true, proofLeanok: true },
+      'lem:inner': { leanName: 'Demo.inner', leanok: true },
+    });
+    expect(declarationRewriteBatches(source, requested).map((batch) => [...batch.keys()])).toEqual([
+      ['thm:outer'], ['lem:inner'],
+    ]);
+    const result = rewriteTexTags(source, requested);
+    expect(result.matched).toEqual(new Set(['thm:outer', 'lem:inner']));
+    expect(statuses(result.source)).toEqual({ 'thm:outer': 'proved', 'lem:inner': 'in_progress' });
+    expect(result.source).toBe(source
+      .replace('\\label{thm:outer}\nOuter statement.', '\\label{thm:outer}\n\\lean{Demo.outer}\n\\leanok\nOuter statement.')
+      .replace('\\label{lem:inner}\nInner statement.', '\\label{lem:inner}\n\\lean{Demo.inner}\n\\leanok\nInner statement.')
+      .replace('\\begin{proof}\nOuter proof.', '\\begin{proof}\n\\leanok\nOuter proof.'));
+  });
+
   it('inserts the tag block after the label', () => {
     const source = '\\begin{lemma}[Helper]\n    \\label{lem:helper}\n    Statement of the lemma.\n\\end{lemma}\n';
     const { source: result, matched } = rewriteTexTags(
