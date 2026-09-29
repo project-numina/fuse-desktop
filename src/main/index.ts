@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import type { ProviderId } from '@shared/agent-events';
 import { DESKTOP_IPC, type AppSettings, type ThemePreference } from '@shared/desktop';
 import { detectProviders } from './agents/detect';
-import { listModels } from './agents/models';
+import { listModels, stopModelProbes } from './agents/models';
 import { AttentionTracker } from './attention';
 import { exportLocalData } from './data-export';
 import { createStorageUsageReader, type StorageRoot } from './storage-usage';
@@ -296,12 +296,14 @@ async function shutdownServices(): Promise<void> {
   }
   const shutdown = ctx?.services.shutdown as (() => Promise<void>) | undefined;
   const work = (async (): Promise<'done'> => {
+    const modelProbes = stopModelProbes();
     try {
       await shutdown?.();
       await server?.close();
     } catch (error) {
       console.error('[fuse] shutdown failed:', error);
     }
+    await modelProbes;
     return 'done';
   })();
   let timer: NodeJS.Timeout | null = null;

@@ -76,6 +76,7 @@ const deps = vi.hoisted(() => {
     registry,
     windowState,
     detectProviders: vi.fn().mockResolvedValue([{ id: 'claude' }]),
+    stopModelProbes: vi.fn().mockResolvedValue(undefined),
     listModels: vi.fn().mockResolvedValue([{ value: 'opus', label: 'Opus' }]),
     AttentionTracker: vi.fn(function AttentionTracker(...args: unknown[]) { return { args }; }),
     exportLocalData: vi.fn(() => ({ path: '/tmp/export.json', fileCount: 2 })),
@@ -139,7 +140,7 @@ vi.mock('electron', () => ({
   systemPreferences: { isSwipeTrackingFromScrollEventsEnabled: vi.fn(() => true) },
 }));
 vi.mock('@main/agents/detect', () => ({ detectProviders: deps.detectProviders }));
-vi.mock('@main/agents/models', () => ({ listModels: deps.listModels }));
+vi.mock('@main/agents/models', () => ({ listModels: deps.listModels, stopModelProbes: deps.stopModelProbes }));
 vi.mock('@main/attention', () => ({ AttentionTracker: deps.AttentionTracker }));
 vi.mock('@main/data-export', () => ({ exportLocalData: deps.exportLocalData }));
 vi.mock('@main/storage-usage', () => ({ createStorageUsageReader: deps.createStorageUsageReader }));
@@ -333,6 +334,7 @@ describe('Electron main bootstrap', () => {
     expect(electron.BrowserWindow).toHaveBeenCalledTimes(windowCount);
     await vi.waitFor(() => expect(electron.quit).toHaveBeenCalledOnce());
     expect(deps.registry.flushSync).toHaveBeenCalledOnce();
+    expect(deps.stopModelProbes).toHaveBeenCalledOnce();
     expect(server.close).toHaveBeenCalledOnce();
     electron.appHandlers.get('before-quit')?.({ preventDefault: vi.fn() });
     expect(server.close).toHaveBeenCalledOnce();

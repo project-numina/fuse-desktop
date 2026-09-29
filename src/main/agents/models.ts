@@ -10,10 +10,17 @@ import { asRecord, asString } from './types';
  * their releases instead of a list compiled into the app. Claude Code reports
  * its models in the stream-json `initialize` control response; Codex answers
  * `model/list` over `codex app-server`. Each probe starts the CLI once, reads
- * the one reply, and stops it.
+ * its model listing, and stops it.
  */
 
 const PROBE_TIMEOUT_MS = 20_000;
+
+const activeProbes = new Set<() => Promise<void>>();
+
+/** Stop model discovery before Electron exits, including probes that already answered. */
+export async function stopModelProbes(): Promise<void> {
+  await Promise.all([...activeProbes].map(stop => stop()));
+}
 
 const COMMANDS: Record<ProviderId, string> = { claude: 'claude', codex: 'codex' };
 
@@ -21,6 +28,7 @@ const COMMANDS: Record<ProviderId, string> = { claude: 'claude', codex: 'codex' 
 const cache = new Map<string, Promise<ModelOption[]>>();
 
 export function listModels(provider: ProviderId, override: string): Promise<ModelOption[]> {
+  if (provider !== 'claude' && provider !== 'codex') return Promise.reject(new Error('Unknown model provider.'));
   const executable = override.trim() || COMMANDS[provider];
   const key = `${provider}\0${executable}`;
   let listing = cache.get(key);
@@ -70,59 +78,106 @@ function probeClaude(executable: string): Promise<ModelOption[]> {
 }
 
 function probeCodex(executable: string): Promise<ModelOption[]> {
-  const requests = [
-    { id: 1, method: 'initialize', params: { clientInfo: { name: 'fuse-desktop', version: '0' } } },
-    { method: 'initialized' },
-    { id: 2, method: 'model/list', params: {} },
-  ];
-  return probe(executable, ['app-server'], requests, (line) => {
+  const models: ModelOption[] = [];
+  let requestId = 1;
+  const requests = [{ id: requestId, method: 'initialize', params: { clientInfo: { name: 'fuse-desktop', version: '0' } } }];
+  return probe(executable, ['app-server'], requests, (line, write) => {
     const message = asRecord(line);
-    if (message.id !== 2) return undefined;
+    if (message.id !== requestId) return undefined;
     if (message.error) throw new Error(asString(asRecord(message.error).message) || 'Codex refused the model request.');
-    return parseCodexModels(message.result);
+    if (requestId === 1) {
+      write({ method: 'initialized' });
+      write({ id: ++requestId, method: 'model/list', params: {} });
+      return undefined;
+    }
+    models.push(...parseCodexModels(message.result));
+    const cursor = asString(asRecord(message.result).nextCursor);
+    if (cursor) {
+      write({ id: ++requestId, method: 'model/list', params: { cursor } });
+      return undefined;
+    }
+    return models;
   });
 }
 
-/** Start the CLI, write `requests`, and settle with the first line `read` answers. */
+/** Start the CLI and settle once its protocol reader has a complete listing. */
 function probe(
   executable: string,
   args: string[],
   requests: unknown[],
-  read: (line: unknown) => ModelOption[] | undefined,
+  read: (line: unknown, write: (request: unknown) => void) => ModelOption[] | undefined,
 ): Promise<ModelOption[]> {
   return new Promise((resolve, reject) => {
     let settled = false;
     const child = spawnCli(executable, args, { cwd: tmpdir(), env: process.env, stdio: ['pipe', 'pipe', 'pipe'] });
+    const stop = trackProbe(child, () => finish(new Error('Model discovery stopped.')));
     const finish = (error: Error | null, models?: ModelOption[]) => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      try {
-        child.stdin.end();
-      } catch {
-        // Already closed by an exiting CLI.
-      }
-      if (child.exitCode === null) killCli(child, 'SIGTERM');
+      stop();
       if (error) reject(error);
       else resolve(models ?? []);
     };
     const timer = setTimeout(() => finish(new Error(`${executable} did not list its models in time.`)), PROBE_TIMEOUT_MS);
+    const write = (request: unknown) => {
+      if (!settled) child.stdin.write(`${JSON.stringify(request)}\n`);
+    };
     const reader = new JsonLineReader((value) => {
+      if (settled) return;
       try {
-        const models = read(value);
+        const models = read(value, write);
         if (models) finish(null, models);
       } catch (error) {
         finish(error instanceof Error ? error : new Error(String(error)));
       }
     }, () => undefined);
-    child.stdout.on('data', (chunk: Buffer) => reader.push(chunk));
+    // Decode across buffer boundaries so multibyte model labels stay intact.
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => reader.push(chunk));
     child.stderr.on('data', () => undefined);
-    child.stdin.on('error', () => undefined);
+    child.stdin.on('error', (error) => finish(error));
     child.on('error', (error) => finish(error));
-    child.on('exit', () => {
+    // `exit` can precede the last stdout chunk; only `close` guarantees it drained.
+    child.on('close', () => {
       reader.end();
       finish(new Error(`${executable} exited before listing its models.`));
     });
-    for (const request of requests) child.stdin.write(`${JSON.stringify(request)}\n`);
+    for (const request of requests) write(request);
   });
+}
+
+/** Bound graceful termination and retain ownership until the process has stopped. */
+function trackProbe(child: ReturnType<typeof spawnCli>, cancel: () => void): () => void {
+  let exited = false;
+  let stopping = false;
+  let killTimer: NodeJS.Timeout | undefined;
+  let release!: () => void;
+  const stopped = new Promise<void>(resolve => { release = resolve; });
+  const shutdown = () => { cancel(); stop(); return stopped; };
+  const cleanup = () => {
+    exited = true;
+    clearTimeout(killTimer);
+    activeProbes.delete(shutdown);
+    release();
+  };
+  const stop = () => {
+    if (exited || stopping) return;
+    stopping = true;
+    try {
+      child.stdin.end();
+    } catch {
+      // Already closed by an exiting CLI.
+    }
+    killTimer = setTimeout(() => {
+      killCli(child, 'SIGKILL');
+      cleanup();
+    }, 3000);
+    killTimer.unref();
+    killCli(child, 'SIGTERM');
+  };
+  activeProbes.add(shutdown);
+  child.once('exit', cleanup);
+  child.once('close', cleanup); // Failed spawns emit close without exit.
+  return stop;
 }

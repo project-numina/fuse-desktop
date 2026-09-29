@@ -38,6 +38,9 @@ export function ModelPicker({ id, provider, value, onCommit, disabled = false }:
       }}
       options={options}
       className="w-full max-w-sm px-3.5 py-2" />
+    {status !== 'ready' && <p role="status" className="mt-2 text-xs text-muted-foreground">
+      {status === 'loading' ? 'Loading models…' : 'Could not load models. Use CLI default or enter a custom model.'}
+    </p>}
     {(editingCustom || isCustom) && <div className="mt-3">
       <label htmlFor={`${id}-custom`} className="mb-1.5 block text-sm font-medium text-foreground/80">Custom model</label>
       <Input id={`${id}-custom`} value={draft} placeholder="Model name" disabled={disabled}
