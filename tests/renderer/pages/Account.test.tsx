@@ -19,6 +19,12 @@ const desktop = vi.hoisted(() => ({
 }));
 vi.mock('@/state/auth', () => ({ useAuth: () => auth }));
 vi.mock('@/desktop/use-desktop-settings', () => ({ useDesktopSettings: () => desktop }));
+vi.mock('@/hooks/use-provider-models', () => ({
+  useProviderModels: (provider: 'claude' | 'codex') => ({
+    status: 'ready',
+    models: (provider === 'claude' ? ['opus', 'sonnet'] : ['gpt-5.6-sol']).map(value => ({ value, label: value })),
+  }),
+}));
 vi.mock('@/components/layout/AppHeader', () => ({ default: () => null }));
 vi.mock('@/components/layout/AppFooter', () => ({ default: () => null }));
 import Account from '@/pages/Account';

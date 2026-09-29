@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { ProviderId } from '@shared/agent-events';
 import { DESKTOP_IPC, type AppSettings, type ThemePreference } from '@shared/desktop';
 import { detectProviders } from './agents/detect';
+import { listModels, stopModelProbes } from './agents/models';
 import { AttentionTracker } from './attention';
 import { exportLocalData } from './data-export';
 import { createStorageUsageReader, type StorageRoot } from './storage-usage';
@@ -214,6 +216,10 @@ function registerIpc(): void {
     const { claudePath, codexPath } = settings.get();
     return detectProviders({ claudePath, codexPath });
   });
+  ipcMain.handle(DESKTOP_IPC.providersModels, (_event, provider: ProviderId) => {
+    const { claudePath, codexPath } = settings.get();
+    return listModels(provider, provider === 'claude' ? claudePath : codexPath);
+  });
   ipcMain.handle(DESKTOP_IPC.settingsGet, () => settings.get());
   ipcMain.handle(DESKTOP_IPC.settingsUpdate, (_event, patch: Partial<AppSettings>) => {
     const saved = settings.update(patch);
@@ -290,12 +296,14 @@ async function shutdownServices(): Promise<void> {
   }
   const shutdown = ctx?.services.shutdown as (() => Promise<void>) | undefined;
   const work = (async (): Promise<'done'> => {
+    const modelProbes = stopModelProbes();
     try {
       await shutdown?.();
       await server?.close();
     } catch (error) {
       console.error('[fuse] shutdown failed:', error);
     }
+    await modelProbes;
     return 'done';
   })();
   let timer: NodeJS.Timeout | null = null;

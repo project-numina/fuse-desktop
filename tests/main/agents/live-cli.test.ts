@@ -2,7 +2,10 @@
  * Opt-in end-to-end checks against the real CLIs. They spend a few cents of
  * API usage and need `claude` / `codex` logged in, so they only run with
  * `FUSE_LIVE_CLI=1 npx vitest run tests/main/agents/live-cli.test.ts`.
+ * The model listings make no model calls and cost nothing.
  */
+
+import { execFileSync } from 'node:child_process';
 
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,6 +15,7 @@ import type { AgentEvent } from '@shared/agent-events';
 import { DEFAULT_AGENT_CONFIG as DEFAULT_THREAD_CONFIG } from '@main/store/rows';
 import { ClaudeCodeThread } from '@main/agents/claude-code';
 import { CodexThread } from '@main/agents/codex';
+import { listModels, stopModelProbes } from '@main/agents/models';
 import type { ProviderThread } from '@main/agents/types';
 
 const live = process.env.FUSE_LIVE_CLI === '1';
@@ -89,4 +93,45 @@ describe.skipIf(!live)('live CLI round trips', () => {
       await thread.close();
     }
   }, 300_000);
+});
+
+/** Model probe processes still running: a `claude`/`codex` executable with only the probes' arguments. */
+function runningProbes(): string[] {
+  const commands = execFileSync('ps', ['-Ao', 'command='], { encoding: 'utf8' }).split('\n');
+  return commands.filter(command => /(^|\/)claude -p --input-format stream-json .*--no-session-persistence$/.test(command)
+    || /(^|\/)codex app-server$/.test(command));
+}
+
+describe.skipIf(!live)('live CLI model listings', () => {
+  it.each([
+    ['claude', ['opus', 'sonnet', 'haiku']],
+    ['codex', []],
+  ] as const)('lists the models %s reports, then stops the probe', async (provider, expected) => {
+    const started = Date.now();
+    const models = await listModels(provider, '');
+    expect(models.length).toBeGreaterThan(0);
+    for (const model of models) {
+      expect(model.value).toMatch(/^\S+$/);
+      expect(model.value).not.toBe('default');
+      expect(model.label.trim()).not.toBe('');
+    }
+    expect(new Set(models.map(model => model.value)).size).toBe(models.length);
+    expect(models.map(model => model.value)).toEqual(expect.arrayContaining([...expected]));
+    expect(Date.now() - started).toBeLessThan(20_000);
+
+    // A second request is served from the cache without starting the CLI.
+    const cachedStart = Date.now();
+    await expect(listModels(provider, '')).resolves.toEqual(models);
+    expect(Date.now() - cachedStart).toBeLessThan(50);
+
+    await stopModelProbes();
+    await new Promise(resolve => setTimeout(resolve, 500));
+    expect(runningProbes()).toEqual([]);
+  }, 60_000);
+
+  it('rejects promptly for a CLI path that does not exist', async () => {
+    const started = Date.now();
+    await expect(listModels('codex', join(tmpdir(), 'fuse-missing-codex'))).rejects.toThrow();
+    expect(Date.now() - started).toBeLessThan(5_000);
+  });
 });
