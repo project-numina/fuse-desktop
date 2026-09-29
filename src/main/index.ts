@@ -3,8 +3,10 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { existsSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import type { ProviderId } from '@shared/agent-events';
 import { DESKTOP_IPC, type AppSettings, type ThemePreference } from '@shared/desktop';
 import { detectProviders } from './agents/detect';
+import { listModels } from './agents/models';
 import { AttentionTracker } from './attention';
 import { exportLocalData } from './data-export';
 import { createStorageUsageReader, type StorageRoot } from './storage-usage';
@@ -213,6 +215,10 @@ function registerIpc(): void {
   ipcMain.handle(DESKTOP_IPC.providersDetect, async () => {
     const { claudePath, codexPath } = settings.get();
     return detectProviders({ claudePath, codexPath });
+  });
+  ipcMain.handle(DESKTOP_IPC.providersModels, (_event, provider: ProviderId) => {
+    const { claudePath, codexPath } = settings.get();
+    return listModels(provider, provider === 'claude' ? claudePath : codexPath);
   });
   ipcMain.handle(DESKTOP_IPC.settingsGet, () => settings.get());
   ipcMain.handle(DESKTOP_IPC.settingsUpdate, (_event, patch: Partial<AppSettings>) => {

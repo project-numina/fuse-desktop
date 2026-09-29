@@ -17,6 +17,13 @@ export interface ProviderInfo {
   error: string | null;
 }
 
+/** One entry of a CLI's own model menu. */
+export interface ModelOption {
+  value: string;
+  label: string;
+  description?: string;
+}
+
 export interface AgentDefaults {
   provider: ProviderId;
   model: string;
@@ -93,6 +100,7 @@ export type MenuCommand =
 
 export const DESKTOP_IPC = {
   providersDetect: 'providers:detect',
+  providersModels: 'providers:models',
   settingsGet: 'settings:get',
   settingsUpdate: 'settings:update',
   settingsChanged: 'settings:changed',
@@ -148,7 +156,11 @@ export interface DesktopApi {
     state(): Promise<PageNavigationState>;
     go(offset: -1 | 1): Promise<boolean>;
   };
-  providers: { detect(): Promise<ProviderInfo[]> };
+  providers: {
+    detect(): Promise<ProviderInfo[]>;
+    /** The models the installed CLI offers; rejects when it cannot be asked. */
+    models(provider: ProviderId): Promise<ModelOption[]>;
+  };
   settings: {
     get(): Promise<AppSettings>;
     update(patch: Partial<AppSettings>): Promise<AppSettings>;

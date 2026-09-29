@@ -13,6 +13,12 @@ import {
 
 import SettingsMode, { type BlueprintRef } from '@/features/blueprint/components/SettingsMode';
 
+vi.mock('@/hooks/use-provider-models', () => ({
+  useProviderModels: (provider: 'claude' | 'codex') => ({
+    status: 'ready',
+    models: (provider === 'claude' ? ['opus', 'sonnet'] : ['gpt-5.6-sol']).map(value => ({ value, label: value })),
+  }),
+}));
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
   return {

@@ -22,6 +22,7 @@ const api: DesktopApi = {
   },
   providers: {
     detect: () => ipcRenderer.invoke(DESKTOP_IPC.providersDetect),
+    models: provider => ipcRenderer.invoke(DESKTOP_IPC.providersModels, provider),
   },
   settings: {
     get: () => ipcRenderer.invoke(DESKTOP_IPC.settingsGet),

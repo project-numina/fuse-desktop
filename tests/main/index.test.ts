@@ -76,6 +76,7 @@ const deps = vi.hoisted(() => {
     registry,
     windowState,
     detectProviders: vi.fn().mockResolvedValue([{ id: 'claude' }]),
+    listModels: vi.fn().mockResolvedValue([{ value: 'opus', label: 'Opus' }]),
     AttentionTracker: vi.fn(function AttentionTracker(...args: unknown[]) { return { args }; }),
     exportLocalData: vi.fn(() => ({ path: '/tmp/export.json', fileCount: 2 })),
     readStorageUsage: vi.fn((roots: unknown) => ({ roots })),
@@ -138,6 +139,7 @@ vi.mock('electron', () => ({
   systemPreferences: { isSwipeTrackingFromScrollEventsEnabled: vi.fn(() => true) },
 }));
 vi.mock('@main/agents/detect', () => ({ detectProviders: deps.detectProviders }));
+vi.mock('@main/agents/models', () => ({ listModels: deps.listModels }));
 vi.mock('@main/attention', () => ({ AttentionTracker: deps.AttentionTracker }));
 vi.mock('@main/data-export', () => ({ exportLocalData: deps.exportLocalData }));
 vi.mock('@main/storage-usage', () => ({ createStorageUsageReader: deps.createStorageUsageReader }));
@@ -279,6 +281,10 @@ describe('Electron main bootstrap', () => {
     expect(deps.navigatePage).toHaveBeenCalledWith(sender, -1);
     await expect(ipc(DESKTOP_IPC.providersDetect)()).resolves.toEqual([{ id: 'claude' }]);
     expect(deps.detectProviders).toHaveBeenCalledWith({ claudePath: '/bin/claude', codexPath: '/bin/codex' });
+    await expect(ipc(DESKTOP_IPC.providersModels)({}, 'claude')).resolves.toEqual([{ value: 'opus', label: 'Opus' }]);
+    expect(deps.listModels).toHaveBeenCalledWith('claude', '/bin/claude');
+    await ipc(DESKTOP_IPC.providersModels)({}, 'codex');
+    expect(deps.listModels).toHaveBeenLastCalledWith('codex', '/bin/codex');
     expect(ipc(DESKTOP_IPC.settingsGet)()).toBe(deps.settingsValue);
     expect(ipc(DESKTOP_IPC.settingsUpdate)({}, { theme: 'dark' })).toEqual(expect.objectContaining({ theme: 'dark' }));
     expect(window.webContents.send).toHaveBeenCalledWith(DESKTOP_IPC.settingsChanged, expect.objectContaining({ theme: 'dark' }));

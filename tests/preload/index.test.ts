@@ -30,6 +30,7 @@ describe('preload bridge', () => {
     await api.navigation.state();
     await api.navigation.go(-1);
     await api.providers.detect();
+    await api.providers.models('codex');
     await api.settings.get();
     await api.settings.update({ theme: 'dark' });
     await api.storage.info();
@@ -46,6 +47,7 @@ describe('preload bridge', () => {
       [DESKTOP_IPC.navigationState],
       [DESKTOP_IPC.navigationGo, -1],
       [DESKTOP_IPC.providersDetect],
+      [DESKTOP_IPC.providersModels, 'codex'],
       [DESKTOP_IPC.settingsGet],
       [DESKTOP_IPC.settingsUpdate, { theme: 'dark' }],
       [DESKTOP_IPC.storageInfo],
