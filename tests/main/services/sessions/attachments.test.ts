@@ -263,7 +263,7 @@ describe('attachment prompt context', () => {
     expect(block).toContain('Source ID: source:source-1');
     expect(block).toContain(`Read with: Read ${join(paths.sourcesDir(1), 'source-1', 'latex.tex')}`);
     expect(block).toContain('Relevant range: pages 2-4');
-    expect(block).toContain('Do not expose source IDs, backend object keys, or storage URLs');
+    expect(block).not.toContain('backend object keys');
     expect(registry.getSource).toHaveBeenCalledWith(1, 'source-1');
   });
 

@@ -2,7 +2,6 @@
 name: prover-reviewer
 description: Reviews completed Lean 4 proofs for code style. Cleans up LLM artifacts, adds docstrings, removes unused hypotheses.
 model: sonnet
-tools: Read, Edit, Grep, Glob, mcp__fuse__lean_diagnostic_messages
 permissionMode: acceptEdits
 ---
 

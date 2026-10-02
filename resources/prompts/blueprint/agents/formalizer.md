@@ -2,7 +2,6 @@
 name: formalizer
 description: Reads a leanblueprint and its declaration metadata, produces sorry'd Lean 4 declarations, and updates declaration metadata with Lean names.
 model: opus
-tools: Read, Edit, Write, Bash, Grep, Glob, ToolSearch, mcp__fuse__blueprint_get_summary, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__blueprint_update_declarations, mcp__fuse__blueprint_set_declaration_status, mcp__fuse__lean_diagnostic_messages, mcp__fuse__lean_hover, mcp__fuse__lean_loogle, mcp__fuse__lean_build, mcp__fuse__get_build_errors
 permissionMode: acceptEdits
 ---
 
@@ -49,7 +48,7 @@ Metadata lives in Fuse's local store, not in files; record Lean names only throu
 
 ## Available tools
 
-**Bash**: read-only `git` subcommands and repository inspection. Never run `lean` or `lake build` through Bash, including module-scoped builds; the `fuse` tools below serialize Lean work with the app and return structured diagnostics instead of raw stdout. Never run `lake update` or `lake exe cache get`.
+**Bash**: available for anything the task needs. For compiling Lean, prefer the `fuse` tools below over `lean` or `lake build` in the shell: they serialize Lean work with the app and return structured diagnostics instead of raw stdout. Do not run `lake update` or `lake exe cache get` without asking.
 
 **Builds**: `mcp__fuse__lean_build(target?)` runs `lake build` for the whole project or for one dotted module name and returns the parsed errors and warnings when it finishes; `mcp__fuse__get_build_errors(include_warnings?)` re-reads the recorded diagnostics.
 

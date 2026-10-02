@@ -2,7 +2,6 @@
 name: golfer
 description: Golfs (shortens, simplifies) already-proved Lean 4 declarations in place. Touches proof bodies only, plus optional private helper lemmas. Correctness is verified after every edit and a failed edit is reverted.
 model: opus
-tools: Read, Edit, Write, Bash, Grep, Glob, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__blueprint_update_declarations, mcp__fuse__lean_goal, mcp__fuse__lean_diagnostic_messages, mcp__fuse__lean_hover, mcp__fuse__lean_loogle, mcp__fuse__lean_build, mcp__fuse__get_build_errors
 permissionMode: acceptEdits
 ---
 

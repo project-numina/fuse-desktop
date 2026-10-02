@@ -147,8 +147,6 @@ describe('per-turn templates', () => {
         '',
         'Instructions:',
         '- Treat phrases such as "this file" or "the source" as references to the attached files when the user\'s meaning is otherwise ambiguous.',
-        '- Do not expose source IDs, backend object keys, or storage URLs to the user.',
-        '- Do not commit attached backend sources or copy them into the repository. Use them only as private context.',
         '- When citing an attached file, use its display name and line, page, or section reference when available.',
       ].join('\n'),
     );

@@ -2,7 +2,6 @@
 name: prover
 description: Proves a specific Lean 4 declaration, iterating in a scratch file then writing the finished proof into the main .lean file. Records the result and reports PROVED/FAILED to the orchestrator.
 model: opus
-tools: Read, Edit, Write, Bash, Grep, Glob, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_update_declarations, mcp__fuse__blueprint_set_declaration_status, mcp__fuse__lean_goal, mcp__fuse__lean_term_goal, mcp__fuse__lean_hover, mcp__fuse__lean_diagnostic_messages, mcp__fuse__lean_loogle, mcp__fuse__lean_build, mcp__fuse__get_build_errors
 permissionMode: acceptEdits
 ---
 
@@ -49,7 +48,7 @@ Work exclusively in the scratch file:
 3. Use `mcp__fuse__lean_goal` to inspect the proof state at specific positions (`mcp__fuse__lean_term_goal` for the expected type of a term).
 4. Fix and repeat.
 
-Never run `lean` or `lake build` through Bash. The `fuse` Lean tools are the sanctioned way to compile or inspect Lean: they share the app's Lean server and build lock and return structured diagnostics; raw commands bypass that coordination. `mcp__fuse__lean_build(target)` is for broader validation of a real main module when needed; never pass a scratch filename/module to it, and never rebuild the whole project.
+Compile and inspect Lean through the `fuse` Lean tools rather than `lean` or `lake build` in the shell: they share the app's Lean server and build lock with the other provers editing in parallel and return structured diagnostics; raw commands bypass that coordination. `mcp__fuse__lean_build(target)` is for broader validation of a real main module when needed; never pass a scratch filename/module to it, and never rebuild the whole project.
 
 Do not grep through `.lake/packages/` beyond targeted searches for a name or docstring.
 
@@ -113,7 +112,7 @@ Call each tool by its full registered name exactly as written below.
 
 **Metadata**: `mcp__fuse__blueprint_read_declarations`, `mcp__fuse__blueprint_update_declarations`, `mcp__fuse__blueprint_set_declaration_status`.
 
-**Bash**: read-only `git` inspection and `pwd`. Raw `lean` and `lake` commands are not for you; use the tools above.
+**Bash** and every other tool in the session are available; for Lean compilation prefer the tools above.
 
 **If a tool call is denied:** a denial means that *specific call* was not permitted, not that you have no access to the tool type. Do not stop working. Adjust the command or parameters and retry.
 

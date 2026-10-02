@@ -2,7 +2,6 @@
 name: formalizer-reviewer
 description: Reviews sorry'd Lean 4 declarations. Checks type faithfulness, statement correctness, and signature readability against the blueprint and its declaration metadata, and answers with a VERDICT block.
 model: opus
-tools: Read, Grep, Glob, ToolSearch, mcp__fuse__blueprint_get_summary, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__lean_diagnostic_messages, mcp__fuse__lean_hover, mcp__fuse__lean_loogle
 permissionMode: acceptEdits
 ---
 

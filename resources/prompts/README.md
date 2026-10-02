@@ -48,8 +48,9 @@ The MCP server registers as `fuse`, so every tool is `mcp__fuse__<name>`:
 `get_build_errors`, `blueprint_get_summary`, `blueprint_list_declarations`,
 `blueprint_read_declarations`, `blueprint_update_declarations`,
 `blueprint_set_declaration_status`, `blueprint_validate`, `blueprint_refresh`.
-The role files' `tools:` frontmatter only names these and Claude Code's
-built-in tools, so a subagent never silently loses a tool.
+The role files have no `tools:` frontmatter: like the main session, each
+subagent inherits every tool the user's Claude Code has, and the permission
+mode chosen in Settings decides what needs approval.
 
 Changes from the web prompts (per the port spec's desktop recommendations):
 `build_project` / `build_module` / `get_build_warnings` became `lean_build(target?)`
@@ -77,7 +78,7 @@ claude -p --input-format stream-json --output-format stream-json --verbose --inc
   --mcp-config '{"mcpServers":{"fuse":{...}}}' --strict-mcp-config      # inline JSON, no mcp.json file is written
   [--add-dir <repoRoot>]                                                # launch.ts adds it when project_subdir is set; redundant with cwd = <repoRoot>
   --allowedTools mcp__fuse Task --disallowedTools ScheduleWakeup CronCreate CronList CronDelete AskUserQuestion
-  --max-turns 200 [--model <model>] [--effort <level>] [--resume <session id>]
+  [--model <model>] [--effort <level>] [--resume <session id>]
 cwd: <repoRoot>    env: FUSE_* (see src/mcp/env.ts) + MCP_TOOL_TIMEOUT=600000
 ```
 

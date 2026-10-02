@@ -2,8 +2,10 @@
  * How a session's CLI process is launched: working directory, environment
  * for the bundled `fuse` MCP server, and the provider-specific options that
  * reproduce the hosted backend's Claude Agent SDK options (system prompt,
- * plugin dir with the role files, MCP config, tool allow/deny lists,
- * max turns) or their Codex equivalents.
+ * plugin dir with the role files, MCP config, tool allow/deny lists) or
+ * their Codex equivalents. The hosted service's sandboxing and turn cap are
+ * deliberately not reproduced: the agent runs as the user on their machine,
+ * under the permission mode chosen in Settings.
  */
 
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,7 +19,6 @@ import { renderSystemPrompt, type PromptPlacement } from './prompts';
 /** Harness tools that would resume the agent outside Fuse's turn orchestration (or stall it). */
 export const DISALLOWED_HARNESS_TOOLS = ['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion'];
 export const ALLOWED_TOOL_PATTERNS = ['mcp__fuse', 'Task'];
-export const AGENT_MAX_TURNS = 200;
 /** Long enough for a full `lake build` through the MCP server; the web's 3 h is for its remote provers. */
 export const MCP_TOOL_TIMEOUT_MS = 600_000;
 
@@ -164,7 +165,6 @@ export function buildThreadLaunch(input: LaunchInput): ThreadLaunch {
       addDirs: project.projectSubdir ? [project.clonePath] : [],
       allowedTools: ALLOWED_TOOL_PATTERNS,
       disallowedTools: DISALLOWED_HARNESS_TOOLS,
-      maxTurns: AGENT_MAX_TURNS,
     };
   } else {
     const bootstrap = join(launchDir, 'mcp-bootstrap.cjs');

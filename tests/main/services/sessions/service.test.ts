@@ -256,7 +256,7 @@ describe('POST /sessions', () => {
     const claude = thread.launch.claude!;
     expect(claude.allowedTools).toEqual(['mcp__fuse', 'Task']);
     expect(claude.disallowedTools).toEqual(['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion']);
-    expect(claude.maxTurns).toBe(200);
+    expect(claude.maxTurns).toBeUndefined();
     expect(claude.systemPromptFile).toContain(join('prompts', response.conversation_id, 'system.md'));
     expect(claude.mcpConfigJson).toBeUndefined();
     expect(claude.mcpConfigFile).toBe(join(world.ctx.paths.dataDir, 'prompts', response.conversation_id, 'mcp.json'));
