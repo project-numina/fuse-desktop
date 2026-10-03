@@ -2,7 +2,6 @@
 name: explorer
 description: General read-only agent that finds existing Lean API (Mathlib, dependencies, and this repository) relevant to whatever the caller is working on, reports it back, and records it on any blueprint declarations it was given. Never edits .tex/.lean.
 model: sonnet
-tools: Read, Grep, Glob, mcp__fuse__blueprint_get_summary, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__blueprint_update_declarations, mcp__fuse__lean_loogle, mcp__fuse__lean_hover
 permissionMode: acceptEdits
 ---
 

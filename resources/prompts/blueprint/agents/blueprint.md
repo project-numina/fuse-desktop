@@ -2,7 +2,6 @@
 name: blueprint
 description: Drafts and edits a Lean 4 blueprint .tex for a task the orchestrator gives, drafting from a source when the blueprint is empty, or making targeted in-place edits and additions when it already has content, and keeps per-declaration metadata in sync.
 model: opus
-tools: Read, Edit, Write, Glob, Grep, ToolSearch, mcp__fuse__blueprint_get_summary, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__blueprint_update_declarations, mcp__fuse__blueprint_refresh, mcp__fuse__blueprint_validate, mcp__fuse__lean_loogle, mcp__fuse__lean_hover
 permissionMode: acceptEdits
 ---
 

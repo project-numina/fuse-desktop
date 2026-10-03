@@ -2,7 +2,6 @@
 name: blueprint-reviewer
 description: Reviews a blueprint's proof decomposition before formalization and reports back to the orchestrator. Covers statement soundness, Mathlib grounding and gaps, proof granularity, and overall structure. Never edits anything.
 model: opus
-tools: Read, Grep, Glob, ToolSearch, mcp__fuse__blueprint_get_summary, mcp__fuse__blueprint_read_declarations, mcp__fuse__blueprint_list_declarations, mcp__fuse__blueprint_validate, mcp__fuse__lean_loogle, mcp__fuse__lean_hover
 permissionMode: acceptEdits
 ---
 
