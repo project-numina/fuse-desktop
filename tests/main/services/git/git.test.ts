@@ -198,6 +198,15 @@ describe('history', () => {
 });
 
 describe('workingTreeDiff', () => {
+  it('shows staged files with current content before the first commit', async () => {
+    const dir = initRepo(root);
+    writeFileSync(join(dir, 'Main.lean'), 'def answer := 42\n');
+    git(dir, 'add', 'Main.lean');
+    writeFileSync(join(dir, 'Main.lean'), 'def answer := 43\n');
+    const { files } = await workingTreeDiff(dir);
+    expect(files).toMatchObject([{ path: 'Main.lean', status: 'added', diff: expect.stringContaining('+def answer := 43') }]);
+  });
+
   it('captures tracked, untracked, binary and symlink changes', async () => {
     const dir = initRepo(root);
     git(dir, 'commit', '-q', '--allow-empty', '-m', 'base');
