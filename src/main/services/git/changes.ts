@@ -126,10 +126,10 @@ export async function workingTreeDiff(cwd: string, options: WorkingTreeDiffOptio
     throw new RangeError('pathspecs must be non-empty strings without NUL');
   }
   if (!Number.isInteger(cap) || cap <= 0) throw new RangeError('max_patch_bytes must be a positive integer');
-  const headExists = await hasHead(cwd);
+  const base = (await hasHead(cwd)) ? 'HEAD' : await tryGit(['hash-object', '-t', 'tree', '/dev/null'], { cwd });
   const [numstatRaw, patchRaw, untrackedRaw] = await Promise.all([
-    headExists ? tryGit(['diff', 'HEAD', '--find-renames', '--numstat', '-z', '--', ...pathspecs], { cwd }) : Promise.resolve(''),
-    headExists ? tryGit(['diff', 'HEAD', '--find-renames', '--', ...pathspecs], { cwd }) : Promise.resolve(''),
+    base ? tryGit(['diff', base, '--find-renames', '--numstat', '-z', '--', ...pathspecs], { cwd }) : Promise.resolve(''),
+    base ? tryGit(['diff', base, '--find-renames', '--', ...pathspecs], { cwd }) : Promise.resolve(''),
     tryGit(['ls-files', '--others', '-z', '--exclude-standard', '--', ...pathspecs], { cwd }),
   ]);
   const tracked = trackedFiles(parseNumstat(numstatRaw ?? ''), splitPatchStream(patchRaw ?? ''), cap);
