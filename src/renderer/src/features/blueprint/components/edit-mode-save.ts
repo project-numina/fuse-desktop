@@ -97,7 +97,11 @@ class FallbackSaveMachine implements SaveMachine {
   }
 
   noteLocalChange(content: string, chapterPath: string): void {
-    if (this.deps.blueprintReadonlyRef.current || content === this.lastSavedContent) return;
+    if (this.deps.blueprintReadonlyRef.current) return;
+    if (content === this.lastSavedContent && this.saveInFlightCount === 0) {
+      this.markContentClean(content);
+      return;
+    }
     this.hasPendingLocalChange = true;
     this.updatePendingState();
     this.scheduleSave(content, chapterPath);
