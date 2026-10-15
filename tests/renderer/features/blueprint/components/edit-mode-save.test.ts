@@ -38,7 +38,7 @@ afterEach(() => {
 });
 
 describe('EditMode fallback save machine', () => {
-  it('debounces local changes and clears pending state after saving', async () => {
+  it('debounces local changes and cancels saves for reverted edits', async () => {
     vi.useFakeTimers();
     const values = setup();
     values.source.current = 'changed';
@@ -53,6 +53,12 @@ describe('EditMode fallback save machine', () => {
       'changed',
       'chapters/intro.tex',
     );
+    expect(values.setPending).toHaveBeenLastCalledWith(false);
+
+    values.machine.noteLocalChange('temporary', values.chapterPath.current);
+    values.machine.noteLocalChange('changed', values.chapterPath.current);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(values.saveActiveChapter).toHaveBeenCalledTimes(1);
     expect(values.setPending).toHaveBeenLastCalledWith(false);
   });
 
