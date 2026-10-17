@@ -168,6 +168,7 @@ function useEditModeController(props: EditModeProps) {
   const editor = useEditModeEditor({
     collaboration: props.collaboration,
     latexSource: props.latexSource,
+    activeChapterPath: props.chapter.activeChapterPath,
     onSourceChange: props.onSourceChange,
     blueprintReadonly,
     declarationSegments: view.declarationSegments,
