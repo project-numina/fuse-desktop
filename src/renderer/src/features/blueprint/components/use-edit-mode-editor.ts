@@ -72,6 +72,7 @@ function buildExtensions(
 interface UseEditModeEditorOptions {
   collaboration: Collaboration | null;
   latexSource: string;
+  activeChapterPath: string;
   onSourceChange?: (value: string) => void;
   blueprintReadonly: boolean;
   declarationSegments: DeclarationSegment[];
@@ -102,6 +103,7 @@ export function useEditModeEditor(options: UseEditModeEditorOptions) {
   );
   const viewRef = useCodeMirror(editorContainerRef, {
     source: options.collaboration ? undefined : options.latexSource,
+    documentKey: options.collaboration ? undefined : options.activeChapterPath,
     onChange: options.onSourceChange,
     readonly: options.blueprintReadonly,
     extensions,

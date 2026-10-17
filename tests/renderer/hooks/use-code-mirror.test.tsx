@@ -3,11 +3,13 @@
  * honest: the post-mount re-measure, for editors that mount inside an element
  * still animating its scale (the source dialog scales from 95% to 100% on
  * open), and the cursor-line decorations that must not paint over a selection.
+ * Also checks that undo history cannot cross document boundaries.
  */
 
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import { useRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { undo } from '@codemirror/commands';
 import type { EditorStateConfig } from '@codemirror/state';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
@@ -55,9 +57,9 @@ async function advanceFrames(count = 2) {
   }
 }
 
-function Harness() {
+function Harness({ source = 'one\ntwo\nthree', documentKey = '' } = {}) {
   const container = useRef<HTMLDivElement | null>(null);
-  useCodeMirror(container, { source: 'one\ntwo\nthree' });
+  useCodeMirror(container, { source, documentKey });
   return (
     <div
       ref={(node) => {
@@ -86,7 +88,17 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('useCodeMirror scale settling', () => {
+describe('useCodeMirror', () => {
+  it('does not restore deleted text from another document', () => {
+    vi.spyOn(EditorView.prototype, 'requestMeasure').mockImplementation(() => {});
+    const { container, rerender } = render(<Harness source={'Alpha\nDeleted paragraph'} documentKey="a.tex" />);
+    const view = EditorView.findFromDOM(container.querySelector('.cm-editor')!)!;
+    act(() => view.dispatch({ changes: { from: view.state.doc.line(2).from, to: view.state.doc.length } }));
+    rerender(<Harness source="Beta" documentKey="b.tex" />);
+    act(() => { undo(view); });
+    expect(view.state.doc.toString()).toBe('Beta');
+  });
+
   it('stops re-measuring once the editor is drawn unscaled', async () => {
     const requestMeasure = renderHarness();
 

@@ -40,6 +40,8 @@ interface UseCodeMirrorOptions {
    * supplied `extensions`.
    */
   source?: string;
+  /** Changing the bound document's identity clears its undo and redo history. */
+  documentKey?: string;
   /** Reports user edits back out. Only meaningful when `source` is provided. */
   onChange?: (value: string) => void;
   /** Toggles readonly mode via an in-place compartment reconfiguration. */
@@ -163,10 +165,12 @@ function readonlyExtensions(isReadonly: boolean | undefined): Extension {
  */
 export function useCodeMirror(
   container: RefObject<HTMLElement | null>,
-  { source, onChange, readonly, extensions = [] }: UseCodeMirrorOptions = {},
+  { source, documentKey, onChange, readonly, extensions = [] }: UseCodeMirrorOptions = {},
 ): RefObject<EditorView | null> {
   const viewRef = useRef<EditorView | null>(null);
   const readonlyCompartmentRef = useRef<Compartment | null>(null);
+  const historyCompartmentRef = useRef<Compartment | null>(null);
+  const documentKeyRef = useRef(documentKey);
 
   // Reading `onChange` through a ref keeps the update listener stable: the view
   // is built once, but always calls the latest handler and never a stale one.
@@ -187,10 +191,12 @@ export function useCodeMirror(
 
     const readonlyCompartment = new Compartment();
     readonlyCompartmentRef.current = readonlyCompartment;
+    const historyCompartment = new Compartment();
+    historyCompartmentRef.current = historyCompartment;
 
     const filteredDefaultKeymap = defaultKeymap.filter(binding => binding.key !== 'Enter');
     const base: Extension[] = [
-      history(),
+      historyCompartment.of(history()),
       EditorView.editorAttributes.of({
         spellcheck: 'false',
         autocorrect: 'off',
@@ -256,6 +262,7 @@ export function useCodeMirror(
       view.destroy();
       viewRef.current = null;
       readonlyCompartmentRef.current = null;
+      historyCompartmentRef.current = null;
     };
     // The editor is created once and reconfigured through effects below;
     // `source`/`onChange`/`readonly`/`extensions` changes are handled there
@@ -267,19 +274,27 @@ export function useCodeMirror(
   useEffect(() => {
     if (!isSourceBound) return;
     const view = viewRef.current;
-    if (!view) return;
+    const historyCompartment = historyCompartmentRef.current;
+    if (!view || !historyCompartment) return;
+    if (documentKeyRef.current !== documentKey) {
+      // addToHistory(false) excludes the source swap but retains older edits.
+      // Remove history in a separate transaction so re-adding it starts fresh,
+      // even when the new chapter has identical text. Keep the view and other
+      // extension state intact.
+      view.dispatch({ effects: historyCompartment.reconfigure([]) });
+      view.dispatch({ effects: historyCompartment.reconfigure(history()) });
+      documentKeyRef.current = documentKey;
+    }
     const currentText = view.state.doc.toString();
     if (source !== undefined && source !== currentText) {
       view.dispatch({
         changes: sourceChange(currentText, source),
-        // Mark the change as source-driven and keep it out of the undo
-        // history: an external swap (e.g. switching chapters) isn't a
-        // user edit, so Undo must not revert to the previous chapter's
-        // text - and if it did, that text would echo back out.
+        // External updates must neither become undoable edits nor echo back
+        // through onChange. Same-document updates retain the existing history.
         annotations: [fromSource.of(true), Transaction.addToHistory.of(false)],
       });
     }
-  }, [source, isSourceBound]);
+  }, [source, documentKey, isSourceBound]);
 
   // Readonly toggle via in-place compartment reconfiguration.
   useEffect(() => {
