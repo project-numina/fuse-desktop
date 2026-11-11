@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BlueprintCommitResult, ConversationLiveSession, SessionHistoryDetail, SessionResponse } from '@shared/api-types';
 import { appPaths } from '@main/paths';
@@ -66,7 +66,7 @@ function makeWorld(options: WorldOptions = {}): World {
     settings: new SettingsStore(join(dataDir, 'settings.json')),
     blueprintRooms: new SseRooms(() => ({})),
     sessionRooms: new SseRooms(() => ({})),
-    resourcesDir: join(dataDir, 'resources'),
+    resourcesDir: resolve('resources'),
     server: { baseUrl: 'http://127.0.0.1:4321', token: 'api-token' },
     services: { attention: { observe: attention }, ...(options.services ?? {}) },
   };

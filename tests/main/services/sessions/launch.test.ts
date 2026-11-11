@@ -20,7 +20,7 @@ function input(provider: 'claude' | 'codex'): LaunchInput {
     conversationId: 'conv-1',
     project: fakeProject('/repo', { agent: { ...DEFAULT_AGENT_CONFIG, provider } }),
     paths: appPaths(dataDir),
-    resourcesDir: join(dataDir, 'resources'),
+    resourcesDir: join(__dirname, '../../../../resources'),
     server: { baseUrl: 'http://127.0.0.1:4321', token: 'secret-token' },
     executable: '',
     providerThreadId: null,
@@ -45,6 +45,18 @@ describe('buildThreadLaunch', () => {
     expect(text).toContain('"FUSE_API_URL":"http://127.0.0.1:4321"');
     expect(text).toContain('mcp-server.js');
     expect(launch.codex!.developerInstructions).toContain('formalization');
+    const roles = launch.codex!.roles!;
+    expect(Object.keys(roles)).toHaveLength(8);
+    for (const [name, role] of Object.entries(roles)) {
+      expect(name).toMatch(/^fuse:/);
+      expect(role.config_file).toContain(join('agents', `${name.slice('fuse:'.length)}.toml`));
+      if (process.platform !== 'win32') expect(statSync(role.config_file).mode & 0o777).toBe(0o600);
+      const toml = readFileSync(role.config_file, 'utf8');
+      expect(toml).toMatch(/^developer_instructions = /);
+      const instructions = JSON.parse(toml.slice('developer_instructions = '.length).trim());
+      expect(instructions).toContain('Do not launch subagents or call spawn_agent');
+      expect(role.description.length).toBeGreaterThan(0);
+    }
   });
 
   it('writes a bootstrap that loads the server with the private environment applied', () => {

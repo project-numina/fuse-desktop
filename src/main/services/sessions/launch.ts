@@ -15,6 +15,7 @@ import type { ThreadLaunch } from '../../agents/types';
 import type { AppPaths } from '../../paths';
 import type { OpenProject } from '../types';
 import { renderSystemPrompt, type PromptPlacement } from './prompts';
+import { loadCodexRoles } from './codex-roles';
 
 /** Harness tools that would resume the agent outside Fuse's turn orchestration (or stall it). */
 export const DISALLOWED_HARNESS_TOOLS = ['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion'];
@@ -107,9 +108,8 @@ function writePrivateFile(path: string, content: string): void {
 
 /**
  * The Codex MCP entry: a CommonJS bootstrap that sets the server's private
- * environment and loads the bundled server. Codex only takes MCP settings as
- * `-c` command-line overrides, which every local process can read, so the
- * token is kept in this file instead.
+ * environment and loads the bundled server. Keep credentials in this private
+ * file rather than the CLI environment inherited by agent shell commands.
  */
 export function codexMcpBootstrap(mcpServerPath: string, env: Record<string, string>): string {
   return [
@@ -171,6 +171,11 @@ export function buildThreadLaunch(input: LaunchInput): ThreadLaunch {
     writePrivateFile(bootstrap, codexMcpBootstrap(input.mcpServerPath, mcpEnv));
     launch.codex = {
       developerInstructions: systemPrompt,
+      roles: Object.fromEntries(loadCodexRoles(promptsDir).map((role) => {
+        const configFile = join(launchDir, 'agents', `${role.name.slice('fuse:'.length)}.toml`);
+        writePrivateFile(configFile, `developer_instructions = ${JSON.stringify(role.developerInstructions)}\n`);
+        return [role.name, { description: role.description, config_file: configFile }];
+      })),
       mcpServers: { fuse: { command: process.execPath, args: [bootstrap], env: { ELECTRON_RUN_AS_NODE: '1' } } },
     };
   }

@@ -17,7 +17,7 @@ export const EFFORT_LEVELS: readonly EffortLevel[] = ['low', 'medium', 'high', '
 /** Claude Code's `--permission-mode` values that make sense for a desktop host. */
 export type ClaudePermissionMode = 'manual' | 'acceptEdits' | 'plan' | 'bypassPermissions';
 
-/** Codex's `--sandbox` values. Codex has no per-tool prompt in exec mode. */
+/** Codex sandbox modes; Fuse uses noninteractive approvals for this provider. */
 export type CodexSandboxMode = 'read-only' | 'workspace-write' | 'danger-full-access';
 
 /**
