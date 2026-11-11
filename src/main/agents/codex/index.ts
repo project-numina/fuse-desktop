@@ -18,6 +18,7 @@ export class CodexThread implements ProviderThread {
   private readonly queue: QueuedTurn[] = [];
   private readonly childTurns = new Map<string, string>();
   private readonly attached = new Set<string>();
+  private readonly attaching = new Map<string, Promise<void>>();
   private readonly events: CodexEventTranslator;
   private closed = false;
   private interrupted = false;
@@ -27,7 +28,12 @@ export class CodexThread implements ProviderThread {
     this.events = new CodexEventTranslator(emit, {
       currentTurnId: () => this.current?.turnId ?? null,
       rootThreadId: () => this.threadId,
-      subscribeChild: (id) => { void this.attachChild(id); },
+      subscribeChild: (id) => {
+        if (this.attaching.has(id)) return;
+        const pending = this.attachChild(id);
+        this.attaching.set(id, pending);
+        void pending.finally(() => this.attaching.delete(id));
+      },
       onTurnStarted: (id, turnId) => {
         if (id === this.threadId) {
           if (!this.current || (this.nativeTurnId && this.nativeTurnId !== turnId)) return;
@@ -163,7 +169,13 @@ export class CodexThread implements ProviderThread {
     try {
       const response = await transport.request('thread/resume', { threadId });
       if (this.transport === transport && this.current === current && !this.closed) {
-        this.events.hydrateChild(threadId, asRecord(response.thread));
+        const thread = asRecord(response.thread);
+        for (const raw of Array.isArray(thread.turns) ? thread.turns : []) {
+          const turn = asRecord(raw);
+          const id = asString(turn.id);
+          if (id && turn.status === 'inProgress') this.childTurns.set(threadId, id);
+        }
+        this.events.hydrateChild(threadId, thread);
       }
     } catch (error) {
       this.log(`Could not attach Codex child ${threadId}: ${String(error)}`);
@@ -186,6 +198,7 @@ export class CodexThread implements ProviderThread {
   }
 
   private async stopChildren(): Promise<void> {
+    await Promise.all([...this.attaching.values()]);
     const transport = this.transport;
     if (!transport) return;
     await Promise.all([...this.childTurns].map(async ([threadId, turnId]) => {

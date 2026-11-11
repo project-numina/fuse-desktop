@@ -99,6 +99,45 @@ describe('CodexThread app-server runtime', () => {
     expect(requests(child).filter((m) => m.method === 'turn/start')).toHaveLength(2);
   });
 
+  it('interrupts a turn whose start response arrives after Stop', async () => {
+    const thread = new CodexThread(launch(), event => events.push(event));
+    await thread.send('a', 'one');
+    await flush();
+    const init = requests(child).find(message => message.method === 'initialize')!;
+    child.emitLine({ id: init.id, result: {} }); await flush();
+    const create = requests(child).find(message => message.method === 'thread/start')!;
+    child.emitLine({ id: create.id, result: { thread: { id: 'root' } } }); await flush();
+    const startRequest = requests(child).find(message => message.method === 'turn/start')!;
+    await thread.interrupt();
+    child.emitLine({ id: startRequest.id, result: { turn: { id: 'late-turn' } } }); await flush();
+    const interrupt = requests(child).find(message => message.method === 'turn/interrupt')!;
+    expect(interrupt).toMatchObject({ params: { threadId: 'root', turnId: 'late-turn' } });
+    child.emitLine({ id: interrupt.id, result: {} });
+    child.emitLine({ method: 'turn/completed', params: { threadId: 'root', turn: { id: 'late-turn', status: 'interrupted' } } });
+    await flush();
+    expect(events.filter(event => event.kind === 'turn_interrupted')).toHaveLength(1);
+  });
+
+  it('waits for child attachment before finishing and interrupts its active snapshot turn', async () => {
+    const thread = new CodexThread(launch(), event => events.push(event));
+    await thread.send('a', 'one'); await start(child);
+    child.emitLine({ method: 'item/completed', params: { threadId: 'native-thread', turnId: 'native-turn', item: {
+      id: 'spawn', type: 'collabAgentToolCall', tool: 'spawnAgent', status: 'completed', receiverThreadIds: ['worker'],
+    } } });
+    await flush();
+    const attach = requests(child).find(message => message.method === 'thread/resume' && (message.params as Record<string, unknown>).threadId === 'worker')!;
+    child.emitLine({ method: 'turn/completed', params: { threadId: 'native-thread', turn: { id: 'native-turn', status: 'completed' } } });
+    await flush();
+    expect(events.some(event => event.kind === 'turn_completed')).toBe(false);
+    child.emitLine({ id: attach.id, result: { thread: { id: 'worker', turns: [{ id: 'worker-turn', status: 'inProgress', items: [] }] } } });
+    await flush();
+    const interrupt = requests(child).find(message => message.method === 'turn/interrupt')!;
+    expect(interrupt).toMatchObject({ params: { threadId: 'worker', turnId: 'worker-turn' } });
+    child.emitLine({ id: interrupt.id, result: {} }); await flush();
+    expect(events.filter(event => event.kind === 'turn_completed')).toHaveLength(1);
+    await thread.close();
+  });
+
   it('steers and interrupts the active turn', async () => {
     const thread = new CodexThread(launch(), (e) => events.push(e)); await thread.send('a', 'one'); await start(child);
     const steering = thread.steer('focus'); await flush();

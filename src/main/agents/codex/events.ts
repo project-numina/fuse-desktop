@@ -78,8 +78,11 @@ export class CodexEventTranslator {
     this.localTurn ??= local;
     const turn = string(params.turnId) ?? string(record(params.turn).id);
     if (turn && this.retiredTurns.has(scope(thread, turn))) return;
-    if (thread !== this.hooks.rootThreadId() && !this.children.has(thread)) {
-      // Subscription notifications may beat both thread/started and spawn completion.
+    const child = this.children.get(thread);
+    const awaitingRun = child?.settled && turn && !this.seenTurns.get(thread)?.has(turn);
+    if (thread !== this.hooks.rootThreadId() && (!child || awaitingRun)) {
+      // Subscription notifications may beat spawn/sendInput association. Keep a
+      // settled child's new turn out of the previous run's retirement history.
       if (this.isSupported(method)) {
         const queue = this.pending.get(thread) ?? [];
         queue.push({ method, params }); this.pending.set(thread, queue);

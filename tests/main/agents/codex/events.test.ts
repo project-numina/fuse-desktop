@@ -123,6 +123,25 @@ describe('CodexEventTranslator', () => {
     expect(s.hooks.onTurnCompleted).toHaveBeenCalledWith('child', expect.objectContaining({ id: 'child-turn-2' }));
   });
 
+  it.each(['started', 'completed'])('buffers a reused child turn arriving before sendInput %s', (phase) => {
+    const s = setup(); s.spawn();
+    s.end('child', 'completed', 'old');
+    s.translator.handle('turn/started', { threadId: 'child', turn: { id: 'new' } });
+    s.translator.handle('item/agentMessage/delta', { threadId: 'child', turnId: 'new', itemId: 'answer', delta: 'New' });
+    s.item({ id: 'answer', type: 'agentMessage', text: 'New answer' }, 'child', 'new');
+    s.end('child', 'completed', 'new');
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toHaveLength(0);
+    const send = { id: 'send', type: 'collabAgentToolCall', tool: 'sendInput', status: phase === 'started' ? 'inProgress' : 'completed', receiverThreadIds: ['child'], agentsStates: {}, prompt: 'Review again' };
+    s.item(send, 'root', 'native', phase);
+    s.item({ ...send, status: 'completed' });
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed', 'running', 'completed']);
+    expect(s.events.filter(e => e.kind === 'subagent_text_delta')).toMatchObject([{ parentToolCallId: 'root:native:send:agent:child', text: 'New' }]);
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ parentToolCallId: 'root:native:send:agent:child', text: 'New answer' }]);
+    expect(s.hooks.onTurnCompleted).toHaveBeenCalledWith('child', expect.objectContaining({ id: 'new' }));
+    s.item({ id: 'stale', type: 'agentMessage', text: 'Old answer' }, 'child', 'old');
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toHaveLength(1);
+  });
+
   it('retains child roles across root turns and excludes historical turns when reattaching', () => {
     const s = setup();
     s.translator.handle('thread/started', { thread: { id: 'child', parentThreadId: 'root', agentRole: 'fuse:reviewer', agentNickname: 'Reviewer' } });
