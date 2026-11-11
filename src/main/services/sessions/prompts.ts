@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import type { ProviderId } from '@shared/agent-events';
 import type { ChatContextAttachmentPayload, MessageDeliveryState, SessionChatMessage } from '@shared/api-types';
 import { messageWithContext, type AttachmentPromptContext } from './attachments';
+import { adaptPromptForCodex, CODEX_DELEGATION_INSTRUCTIONS } from './codex-roles';
 
 export type LeanEnvironmentState =
   | { kind: 'ready' }
@@ -71,8 +72,7 @@ Short and concise. No emojis. Reference code as \`file_path:line_number\`. Every
 const FALLBACK_DELEGATION: Record<ProviderId, string> = {
   claude:
     '# Delegation\n\nHeavy Lean work runs in subagents launched with the `Task` tool (`blueprint`, `blueprint-reviewer`, `formalizer`, `formalizer-reviewer`, `prover`, `golfer`, `prover-reviewer`, `explorer`). Order the work by the blueprint\'s `\\uses{}` dependencies and keep dependency analysis, verification and metadata reconciliation to yourself.',
-  codex:
-    '# Working alone\n\nThere are no subagents in this runtime. Do every stage yourself, sequentially, reviewing your own blueprint edits and Lean statements before proving. Prove declarations one at a time in dependency order and record every status change as you go.',
+  codex: CODEX_DELEGATION_INSTRUCTIONS,
 };
 
 function readIfPresent(path: string): string | null {
@@ -103,15 +103,18 @@ export function renderSystemPrompt(sources: SystemPromptSources, placement: Prom
   // CLAUDE.md, and Codex has no plugin mechanism at all, so the blueprint
   // conventions are folded into the system prompt for both providers.
   const conventions = readIfPresent(join(sources.promptsDir, 'blueprint', 'CLAUDE.md'));
-  const body = conventions ? `${template.trim()}\n\n${conventions.trim()}` : template;
-  return fillPlaceholders(body, {
+  const providerTemplate = sources.provider === 'codex' && !template.includes('{delegation_section}')
+    ? `${template.trim()}\n\n{delegation_section}`
+    : template;
+  const body = conventions ? `${providerTemplate.trim()}\n\n${conventions.trim()}` : providerTemplate;
+  return fillPlaceholders(sources.provider === 'codex' ? adaptPromptForCodex(body) : body, {
     repo_root: placement.repoRoot,
     project_root: placement.projectRoot,
     project_subdir: placement.projectSubdir || '.',
     blueprint_tex: placement.blueprintTexPath,
     blueprint_name: placement.blueprintName,
     lean_module: placement.leanModule ?? '(not recorded yet; read it from the lakefile)',
-    delegation_section: delegation.trim(),
+    delegation_section: sources.provider === 'codex' ? adaptPromptForCodex(delegation.trim()) : delegation.trim(),
   }).trim();
 }
 

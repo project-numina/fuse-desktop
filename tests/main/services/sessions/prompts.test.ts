@@ -160,7 +160,9 @@ describe('renderSystemPrompt', () => {
     expect(prompt).toContain('Repository root: /repo');
     expect(prompt).toContain('Lean module for this blueprint: Sample');
     expect(prompt).toContain('# Delegation');
-    expect(renderSystemPrompt({ promptsDir: '/nonexistent', provider: 'codex' }, placement)).toContain('# Working alone');
+    const codex = renderSystemPrompt({ promptsDir: '/nonexistent', provider: 'codex' }, placement);
+    expect(codex).toContain('spawn_agent(agent_type="fuse:<role>", message=...)');
+    expect(codex).not.toContain('Working alone');
   });
 
   it('reads the shipped prompt and delegation section from resources/prompts', () => {
@@ -172,7 +174,36 @@ describe('renderSystemPrompt', () => {
     const prompt = renderSystemPrompt({ promptsDir: join(dir, 'prompts'), provider: 'claude' }, { ...placement, leanModule: null });
     expect(prompt).toBe('Blueprint sample at /repo/lean/blueprint/src/content.tex\n\n# Delegate with Task\n\nModule (not recorded yet; read it from the lakefile) {unknown}');
     writeFileSync(join(dir, 'prompts', 'system-prompt-codex.md'), 'Codex prompt for {blueprint_name}');
-    expect(renderSystemPrompt({ promptsDir: join(dir, 'prompts'), provider: 'codex' }, placement)).toBe('Codex prompt for sample');
+    expect(renderSystemPrompt({ promptsDir: join(dir, 'prompts'), provider: 'codex' }, placement)).toContain('Codex prompt for sample\n\n# Delegation');
+  });
+
+  it('adapts shared conventions only for Codex, including the Claude-template fallback', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fuse-prompts-'));
+    dirs.push(dir);
+    mkdirSync(join(dir, 'blueprint'), { recursive: true });
+    writeFileSync(join(dir, 'system-prompt.md'), 'Launch `Task(subagent_type="fuse:prover", prompt=...)`.');
+    writeFileSync(join(dir, 'blueprint', 'CLAUDE.md'), 'Use the `Task` tool and `Grep`; make targeted `Edit`s.');
+    const claude = renderSystemPrompt({ promptsDir: dir, provider: 'claude' }, placement);
+    expect(claude).toBe('Launch `Task(subagent_type="fuse:prover", prompt=...)`.\n\nUse the `Task` tool and `Grep`; make targeted `Edit`s.');
+    const codex = renderSystemPrompt({ promptsDir: dir, provider: 'codex' }, placement);
+    expect(codex).toContain('spawn_agent(agent_type="fuse:prover", message=...)');
+    expect(codex).toContain('`spawn_agent` tool and `rg` through the shell');
+    expect(codex).toContain('`apply_patch`s');
+    expect(codex).toContain('at most 3 rounds per request');
+    expect(codex).not.toMatch(/\bTask\b|\bGrep\b|\bEdit\b/);
+  });
+
+  it('gives Codex native orchestration without solo-work or self-review directives', () => {
+    const promptsDir = join(__dirname, '..', '..', '..', '..', 'resources', 'prompts');
+    const codex = renderSystemPrompt({ promptsDir, provider: 'codex' }, placement);
+    for (const tool of ['spawn_agent', 'wait', 'send_input', 'close_agent']) expect(codex).toContain(tool);
+    expect(codex).toContain('at most 8 agents active at once across all roles');
+    expect(codex).toContain('Subagents cannot launch subagents');
+    expect(codex).toContain('at most 3 rounds per request');
+    expect(codex).not.toMatch(/Working alone|There are no subagents|review what you wrote|review the blueprint you wrote|`Task`|`Grep`|\bBash\b/);
+    const claude = renderSystemPrompt({ promptsDir, provider: 'claude' }, placement);
+    expect(claude).toContain('`Task(subagent_type="fuse:blueprint", prompt=...)`');
+    expect(claude).not.toContain('spawn_agent');
   });
 
   it('renders the shipped resources without leaving a known placeholder behind', () => {
