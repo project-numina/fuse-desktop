@@ -7,7 +7,7 @@ agent with native tools plus the `fuse` MCP server (`out/main/mcp-server.js`).
 ```
 prompts/
 ├── system-prompt.md          orchestrator system prompt for Claude Code (native Task subagents)
-├── system-prompt-codex.md    the same for Codex, no subagents: the role protocols are inlined
+├── system-prompt-codex.md    Codex orchestrator with native spawn_agent delegation
 └── blueprint/                Claude Code plugin loaded with --plugin-dir
     ├── .claude-plugin/plugin.json   manifest (name "fuse"; required by claude 2.1.270)
     ├── CLAUDE.md             project context, appended to the rendered system prompt (see below)
@@ -121,16 +121,33 @@ Facts checked with the installed CLI:
 
 ## Codex wiring
 
-`system-prompt-codex.md` is prepended to the first turn of a `codex exec`
-thread inside a delimited block (exec mode has no developer-instructions
-channel); the MCP server is configured with
-`-c mcp_servers.fuse.command=<electron> -c mcp_servers.fuse.args=[<mcp-bootstrap.cjs>]`
-where the bootstrap file, written per conversation under the app's data
-directory with owner-only permissions, carries the `FUSE_*` environment so the
-API token never appears on a command line. Its tools are also named
-`mcp__fuse__<name>`. The CLI runs with
-`-C <repoRoot>` and, outside `danger-full-access`, `-c approval_policy="never"`:
-under that policy Codex refuses any MCP tool whose annotations leave
-`destructiveHint` at its default (true), so every `fuse` tool declares either
-`readOnlyHint: true` or `destructiveHint: false` (`tests/mcp/tools.test.ts`
-checks this).
+Codex runs as a persistent `codex app-server` process over stdio. Fuse sends
+`developerInstructions`, the working directory, model, sandbox, and MCP configuration
+through `thread/start` or `thread/resume`; long prompts do not pass through the command
+line or fall back to user messages on Windows.
+
+The eight Claude role bodies are also the source for Codex roles. Fuse adapts tool
+names, drops Claude model and permission aliases, and writes private TOML files under
+its own per-conversation app-data directory. `agents.<role>.config_file` registers
+`fuse:<role>` with native `spawn_agent`. Roles inherit the selected Codex model and
+sandbox. `agents.max_threads=8` and `agents.max_depth=1` limit concurrency and prevent
+nested delegation. The orchestrator collects results with `wait`, sends review feedback
+with `send_input`, and releases workers with `close_agent`.
+
+Native child events are mapped onto the same Agent cards, tool history, and lifecycle
+events as Claude. Child attachment uses `thread/resume` snapshots plus streamed events;
+spawn completion means the child was launched, not that its work finished. Stopping a
+turn interrupts the parent and its active children. Running input uses `turn/steer`.
+
+The MCP bootstrap remains owner-readable only and carries the `FUSE_*` environment;
+credentials are not written into the repository or command line. Codex retains
+`approvalPolicy=never` with the sandbox selected in Settings. This does not emulate
+Claude's interactive approval modes. MCP tool annotations describe tool behavior;
+they do not turn a filesystem sandbox into an application-API authorization layer.
+
+The native configuration and initialization were checked without model requests using
+Codex `0.154.0-alpha.6.2`. Older versions lacking these app-server or multi-agent
+capabilities are not supported by this adapter; protocol failures are surfaced rather
+than silently switching to single-agent execution. Model-driven integration tests
+remain opt-in (`FUSE_LIVE_CLI=1`). A resumed root thread that is already running is
+rejected with an actionable error instead of silently steering another active turn.

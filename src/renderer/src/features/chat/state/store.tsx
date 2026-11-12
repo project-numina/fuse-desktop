@@ -70,6 +70,7 @@ import {
 import { createPermissionState } from './permission-state';
 import { createSubagentEventState } from './subagent-event-state';
 import { createToolCallState } from './tool-call-state';
+import { applyPendingSubagentStatuses, clearPendingSubagentStatuses } from './pending-subagent-status';
 import {
   CLOSED_STREAM_RECONNECT_INITIAL_MS,
   CLOSED_STREAM_RECONNECT_MAX_MS,
@@ -619,6 +620,7 @@ export function createChatStore({ repositoryOwner, repositoryName, blueprintName
       if (activity.toolUseId) appliedToolUseIds.add(activity.toolUseId);
     }
     for (const subagent of state.subagents) {
+      applyPendingSubagentStatuses(state, subagent.parentToolUseId);
       appliedToolUseIds.add(subagent.parentToolUseId);
       for (const call of subagent.toolCalls) {
         if (call.toolUseId) appliedToolUseIds.add(call.toolUseId);
@@ -1156,6 +1158,7 @@ export function createChatStore({ repositoryOwner, repositoryName, blueprintName
     clearHistoryView();
     // Fresh session: drop any dedup ids carried over from a previously viewed
     // transcript so the sets only reflect this session's live events.
+    clearPendingSubagentStatuses(state);
     appliedToolUseIds.clear();
     appliedAssistantTurnIds.clear();
     finalizedAssistantTurnIds.clear();
@@ -1459,6 +1462,7 @@ export function createChatStore({ repositoryOwner, repositoryName, blueprintName
 
     state.activities = [];
     state.subagents = [];
+    clearPendingSubagentStatuses(state);
     state.sending = false;
 
     // Prefer the cursor read with the transcript snapshot over the
@@ -1699,6 +1703,7 @@ export function createChatStore({ repositoryOwner, repositoryName, blueprintName
    */
   async function prepareNewAgentSession(): Promise<void> {
     invalidateHistoryLoads();
+    clearPendingSubagentStatuses(state);
     // Starting a new chat only detaches this panel. The current session is
     // durable and may keep running autonomously in the background; cancelling
     // it here made a navigation action destructive.

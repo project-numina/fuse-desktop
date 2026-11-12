@@ -369,7 +369,7 @@ export class LocalSession {
         return;
       case 'runtime_log': {
         if (event.level !== 'error') return;
-        const friendly = claudeApiErrorMessage(event.message);
+        const friendly = this.project.blueprint.agent.provider === 'codex' ? event.message : claudeApiErrorMessage(event.message);
         if (!friendly) return;
         if (this.currentTurn) this.currentTurn.hadError = true;
         this.publish('error', { message: friendly });

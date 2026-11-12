@@ -1,4 +1,5 @@
 import type { ThreadLaunch } from '../types';
+import { MCP_TOOL_TIMEOUT_MS } from '@shared/build-timeouts';
 
 /**
  * Build the fixed stream-json transport flags and the launch-specific Claude
@@ -55,8 +56,7 @@ export function buildClaudeEnvironment(launch: ThreadLaunch): NodeJS.ProcessEnv 
     // Background Task calls finish in a CLI-initiated turn this adapter would
     // otherwise drop, so child agents must block their owning turn.
     CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1',
-    // Mirrors the hosted backend's three-hour MCP tool timeout.
-    MCP_TOOL_TIMEOUT: '10800000',
+    MCP_TOOL_TIMEOUT: String(MCP_TOOL_TIMEOUT_MS),
     ...launch.env,
   };
 }

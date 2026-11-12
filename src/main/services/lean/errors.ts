@@ -42,5 +42,11 @@ export function leanServiceError(error: unknown, action: string, requestedFilePa
   if (error instanceof LSPRequestTimeout || LSP_QUERY_TIMEOUT_PATTERN.test(text.trim())) {
     return new HttpError(409, 'Lean is still processing this file. Please retry shortly.', 'lean_query_retry', 2);
   }
-  return new HttpError(502, LEAN_UNAVAILABLE_DETAIL);
+  const cause = text
+    .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, '$1[redacted]@')
+    .replace(/\b(Bearer\s+)\S+/gi, '$1[redacted]')
+    .replace(/\b(?:sk-[a-zA-Z0-9_-]+|gh[pousr]_[a-zA-Z0-9_]+)\b/g, '[redacted]')
+    .replace(/((?:api[_-]?key|token|password|secret)\s*[=:]\s*)[^\s&,;]+/gi, '$1[redacted]')
+    .slice(0, 2000);
+  return new HttpError(502, `${LEAN_UNAVAILABLE_DETAIL}${cause ? ` Cause: ${cause}` : ''}`, 'lean_unavailable');
 }

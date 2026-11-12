@@ -31,17 +31,19 @@ export interface ClaudeLaunchOptions {
 /** Codex specific launch options. */
 export interface CodexLaunchOptions {
   /**
-   * The developer message for the thread: passed as `-c developer_instructions`
-   * on every turn where the command line can carry it, else inside a
-   * delimited block at the top of the first turn's prompt.
+   * Developer instructions delivered over app-server stdio when starting or
+   * resuming a thread, without command-line length limits.
    */
   developerInstructions?: string;
+  /** Native roles stored under Fuse app data, never in the user's repository. */
+  roles?: Record<string, { description: string; config_file: string }>;
+  /** Explicit shell values also inherited by native role agents. */
+  shellEnvironment?: Record<string, string>;
   /**
-   * `-c mcp_servers.<name>.command=...` entries. Every value here lands on the
-   * Codex command line, so `env` must hold nothing secret (a private bootstrap
-   * file carries the server's real environment; see `sessions/launch.ts`).
+   * MCP configuration sent over app-server stdio. A private bootstrap file
+   * carries the server's real environment; see `sessions/launch.ts`.
    */
-  mcpServers?: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
+  mcpServers?: Record<string, { command: string; args: string[]; env?: Record<string, string>; tool_timeout_sec?: number }>;
 }
 
 export interface ThreadLaunch {

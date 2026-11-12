@@ -10,8 +10,9 @@ import { HttpError } from '../store/registry';
 
 export { HttpError };
 
-function safeDetail(status: number, detail: string): string {
+function safeDetail(status: number, detail: string, code: string | null): string {
   if (status === 403) return 'You do not have permission to access this resource.';
+  if (status === 502 && code === 'lean_unavailable') return detail;
   if (status === 502) return 'An upstream service failed. Please try again.';
   if (status === 503) return 'The service is temporarily unavailable. Please try again.';
   if (status >= 500) return 'Something went wrong on our side. Please try again.';
@@ -24,7 +25,7 @@ export function errorResponse(c: Context, error: unknown): Response {
     const headers: Record<string, string> = {};
     if (error.retryAfterSeconds !== null) headers['Retry-After'] = String(error.retryAfterSeconds);
     return c.json(
-      { detail: safeDetail(error.status, error.detail), code: error.code ?? `http_${error.status}`, request_id: requestId },
+      { detail: safeDetail(error.status, error.detail, error.code), code: error.code ?? `http_${error.status}`, request_id: requestId },
       error.status as 400,
       headers,
     );

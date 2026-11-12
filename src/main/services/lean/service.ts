@@ -30,7 +30,8 @@ import { HttpError } from '../../server/errors';
 import { roomKeyFor, type OpenProject } from '../types';
 import { AbortError, isAbortError } from './async';
 import { BuildBus, BuildCoordinator, SnapshotWatcher, type BuildState } from './build/events';
-import { depsReady, hasLakefile, isDirectory, readSnapshot, repoRelativeCounts, snapshotCounts, type Snapshot } from './build/snapshot';
+import { depsReady, hasLakefile, isDirectory, readSnapshot, repoRelativeCounts, snapshotCounts, sourceContentHash, type Snapshot } from './build/snapshot';
+import { VerificationQueue } from './verification-queue';
 import { buildFailed, type BuildOutput } from './diagnostics';
 import { persistedBuildStatus, readPackageRevisions, runModuleBuild, runProjectBuildIfNeeded, type BuildPhase } from './build';
 import { leanPreparingError, leanServiceError } from './errors';
@@ -186,7 +187,9 @@ export class LeanService {
     if (this.shuttingDown) return Promise.resolve({ status: 'failed', output: null, error: 'Fuse is shutting down' });
     const runtime = this.runtime(project);
     const incoming: BuildRequest = { target: options.target ?? null };
-    const build = runtime.coordinator.request(incoming, (request) => this.runBuild(project, runtime, request, options));
+    const build = runtime.coordinator.request(incoming, (request) => this.verificationQueue.exclusive(
+      () => this.runBuild(project, runtime, request, options), this.shutdownController.signal,
+    ));
     // The eager LSP restart waits for the coordinator to clear the flag:
     // fired from inside the build it would see that build as still running.
     void build.then(
@@ -258,6 +261,10 @@ export class LeanService {
   // ── Infoview ─────────────────────────────────────────────────────────────
 
   async goals(project: OpenProject, req: GoalRequest, signal?: AbortSignal): Promise<GoalResponse> {
+    return this.verificationQueue.exclusive(() => this.runGoals(project, req, signal), signal);
+  }
+
+  private async runGoals(project: OpenProject, req: GoalRequest, signal?: AbortSignal): Promise<GoalResponse> {
     const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
     const runtime = await this.ensureLspReady(project);
     return this.registry.withService(runtime.projectRoot, project.clonePath, async (service) => {
@@ -292,6 +299,10 @@ export class LeanService {
   }
 
   async hover(project: OpenProject, req: HoverRequest, signal?: AbortSignal): Promise<HoverResponse> {
+    return this.verificationQueue.exclusive(() => this.runHover(project, req, signal), signal);
+  }
+
+  private async runHover(project: OpenProject, req: HoverRequest, signal?: AbortSignal): Promise<HoverResponse> {
     const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
     const runtime = await this.ensureLspReady(project);
     return this.registry.withService(runtime.projectRoot, project.clonePath, async (service) => {
@@ -314,6 +325,10 @@ export class LeanService {
   }
 
   async reload(project: OpenProject, req: ReloadFileRequest): Promise<OkResponse> {
+    return this.verificationQueue.exclusive(() => this.runReload(project, req));
+  }
+
+  private async runReload(project: OpenProject, req: ReloadFileRequest): Promise<OkResponse> {
     const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
     const runtime = await this.ensureLspReady(project);
     return this.registry.withService(runtime.projectRoot, project.clonePath, async (service) => {
@@ -326,7 +341,16 @@ export class LeanService {
     });
   }
 
+  private readonly verificationQueue = new VerificationQueue();
+
   async diagnostics(project: OpenProject, req: DiagnosticRequest, signal?: AbortSignal): Promise<DiagnosticResponse> {
+    const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
+    const version = sourceContentHash(absolute) ?? '';
+    return this.verificationQueue.run(absolute, version, JSON.stringify([req.start_line ?? null, req.end_line ?? null]),
+      () => sourceContentHash(absolute) ?? '', () => this.runDiagnostics(project, req, signal), signal);
+  }
+
+  private async runDiagnostics(project: OpenProject, req: DiagnosticRequest, signal?: AbortSignal): Promise<DiagnosticResponse> {
     const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
     const runtime = await this.ensureLspReady(project);
     const relativePath = snapshotKey(project.clonePath, runtime.projectRoot, req.file_path);

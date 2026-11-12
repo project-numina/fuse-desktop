@@ -86,6 +86,38 @@ function createHarness(state: ChatState = createInitialChatState()) {
 }
 
 describe('tool call state', () => {
+  it.each(['completed', 'failed', 'stopped'])('buffers %s before spawn and ignores replayed running status', (status) => {
+    const { controller, state } = createHarness();
+    controller.handleAgentStatus(event({ tool_use_id: 'late', status }));
+    controller.handleCall(event({ tool: 'Agent', tool_use_id: 'late', input: { description: 'worker' } }));
+    const expected = status === 'completed' ? 'done' : status === 'stopped' ? 'cancelled' : 'failed';
+    expect(state.subagents).toMatchObject([{ status: expected }]);
+    controller.handleAgentStatus(event({ tool_use_id: 'late', status: 'running' }));
+    controller.handleCall(event({ tool: 'Agent', tool_use_id: 'late', input: {} }));
+    expect(state.subagents).toMatchObject([{ status: expected }]);
+    expect(state.subagents).toHaveLength(1);
+  });
+
+  it('applies pending status even when a replayed spawn is deduplicated', () => {
+    const harness = createHarness();
+    harness.controller.handleCall(event({ tool: 'Agent', tool_use_id: 'agent-1', input: {} }));
+    harness.state.subagents = [];
+    harness.controller.handleAgentStatus(event({ tool_use_id: 'agent-1', status: 'failed' }));
+    // History hydration restored the card, and SSE replays an already seen call.
+    harness.state.subagents = [subagent()];
+    harness.controller.handleCall(event({ tool: 'Agent', tool_use_id: 'agent-1', input: {} }));
+    expect(harness.state.subagents[0].status).toBe('failed');
+  });
+
+  it('does not carry pending statuses across conversation switches', () => {
+    const { controller, state } = createHarness();
+    state.conversationId = 'first';
+    controller.handleAgentStatus(event({ tool_use_id: 'reused', status: 'failed' }));
+    state.conversationId = 'second';
+    controller.handleCall(event({ tool: 'Agent', tool_use_id: 'reused', input: {} }));
+    expect(state.subagents[0].status).toBe('running');
+  });
+
   it('adds a top-level call once and attaches its result', () => {
     const { state, controller } = createHarness();
     const call = { tool: 'Read', input: { file_path: 'Main.lean' }, tool_use_id: 'tool-1' };

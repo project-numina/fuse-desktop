@@ -30,13 +30,20 @@ describe('leanServiceError', () => {
     expect(timeout).toMatchObject({ status: 409, code: 'lean_query_retry', retryAfterSeconds: 2, detail: 'Lean is still processing this file. Please retry shortly.' });
     const textual = leanServiceError(new Error("LSP request 'textDocument/hover' (id 7) timed out after 0.5s"), 'lean_hover');
     expect(textual.code).toBe('lean_query_retry');
-    expect(leanServiceError(new Error("prefix LSP request 'x' (id 1) timed out after 1s"), 'x').code).toBeNull();
+    expect(leanServiceError(new Error("prefix LSP request 'x' (id 1) timed out after 1s"), 'x').code).toBe('lean_unavailable');
   });
 
   it('falls back to a 502 and passes HttpErrors through', () => {
-    expect(leanServiceError(new Error('boom'), 'lean_goal')).toMatchObject({ status: 502, detail: 'Lean language services are temporarily unavailable. Please try again.' });
+    expect(leanServiceError(new Error('boom'), 'lean_goal')).toMatchObject({ status: 502, code: 'lean_unavailable', detail: expect.stringContaining('Cause: boom') });
     const passthrough = new HttpError(400, 'Invalid file path');
     expect(leanServiceError(passthrough, 'lean_goal')).toBe(passthrough);
     expect(leanPreparingError()).toMatchObject({ status: 409, detail: LEAN_PREPARING_DETAIL, code: 'lean_setup_required' });
+  });
+
+  it('bounds and redacts local diagnostics while keeping the actionable cause', () => {
+    const error = leanServiceError(new Error('lake failed token=secret-value Bearer credential sk-privatekey https://user:password@host/' + 'x'.repeat(3000)), 'lean_goal');
+    expect(error.detail).toContain('lake failed');
+    expect(error.detail).not.toMatch(/secret-value|credential|sk-privatekey|user:password/);
+    expect(error.detail.length).toBeLessThan(2200);
   });
 });
