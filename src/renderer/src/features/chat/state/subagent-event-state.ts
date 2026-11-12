@@ -1,5 +1,6 @@
 import { parseSseEventData } from './sse';
 import { applySubagentText } from './subagents';
+import { applyPendingSubagentStatuses } from './pending-subagent-status';
 import type { ChatState, SubagentMessage, SubagentStream } from './types';
 
 interface SubagentEventDependencies {
@@ -33,6 +34,7 @@ function writeSubagent(state: ChatState, next: SubagentStream): void {
   );
   if (index === -1) {
     state.subagents = [...state.subagents, next];
+    applyPendingSubagentStatuses(state, next.parentToolUseId);
     return;
   }
   state.subagents = [
@@ -40,6 +42,7 @@ function writeSubagent(state: ChatState, next: SubagentStream): void {
     next,
     ...state.subagents.slice(index + 1),
   ];
+  applyPendingSubagentStatuses(state, next.parentToolUseId);
 }
 
 function createSubagent(
@@ -102,7 +105,7 @@ function ensureSubagent(
   if (!existing) {
     const created = createSubagent(dependencies, parentToolUseId, options);
     writeSubagent(dependencies.state, created);
-    return created;
+    return dependencies.state.subagents.find(agent => agent.parentToolUseId === parentToolUseId)!;
   }
   const patched = patchSubagent(existing, options);
   if (patched !== existing) writeSubagent(dependencies.state, patched);

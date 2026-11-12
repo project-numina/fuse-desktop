@@ -14,6 +14,109 @@ function setup() {
 }
 
 describe('CodexEventTranslator', () => {
+  it('does not discover a parentless thread as a child before the root id is assigned', () => {
+    let root: string | null = null;
+    const subscribeChild = vi.fn(), events: AgentEvent[] = [];
+    const translator = new CodexEventTranslator(event => events.push(event), {
+      currentTurnId: () => 'local', rootThreadId: () => root, subscribeChild,
+      onTurnStarted: vi.fn(), onTurnCompleted: vi.fn(),
+    });
+    translator.handle('thread/started', { thread: { id: 'root', source: 'vscode' } });
+    translator.handle('thread/started', { thread: { id: 'other', parentThreadId: null } });
+    expect(subscribeChild).not.toHaveBeenCalled();
+    root = 'root';
+    translator.handle('thread/started', { thread: { id: 'root', source: 'vscode' } });
+    translator.handle('thread/started', { thread: { id: 'other', parentThreadId: null } });
+    expect(subscribeChild).not.toHaveBeenCalled();
+    translator.handle('thread/started', { thread: { id: 'child', source: { subAgent: { thread_spawn: { parent_thread_id: root, agent_role: 'fuse:prover' } } } } });
+    expect(subscribeChild).toHaveBeenCalledExactlyOnceWith('child');
+    expect(events).toEqual([]);
+  });
+
+  it('maps current native activity, buffers early child text, and deduplicates both event families', () => {
+    const s = setup();
+    s.item({ id: 'answer', type: 'agentMessage', text: 'FUSE_PROVER_DIAGNOSTIC_OK' }, 'child', 'work');
+    const activity = { id: 'spawn', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child', agentPath: '/root/prover' };
+    s.item(activity, 'root', 'native', 'started'); s.item(activity);
+    s.spawn();
+    s.translator.hydrateChild('child', { source: { subagent: { thread_spawn: { parent_thread_id: 'root', agent_role: 'fuse:prover' } } },
+      turns: [{ id: 'work', status: 'completed', items: [{ id: 'answer', type: 'agentMessage', text: 'FUSE_PROVER_DIAGNOSTIC_OK' }] }] });
+    s.item({ ...activity, id: 'completed-work', kind: 'completed' });
+    s.item({ ...activity, id: 'interrupted-work', kind: 'interrupted' });
+    expect(s.events.filter(e => e.kind === 'tool_call_started' && e.tool === 'Agent')).toHaveLength(1);
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ text: 'FUSE_PROVER_DIAGNOSTIC_OK' }]);
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed']);
+    expect(s.events.filter(e => e.kind === 'tool_call_completed' && e.toolCallId === 'root:native:spawn')).toHaveLength(1);
+    expect(s.hooks.subscribeChild).toHaveBeenCalledTimes(1);
+  });
+
+  it('handles native interacted events without treating them as incompatibility or restarting an idle worker', () => {
+    const s = setup(); s.spawn(); s.end();
+    const interaction = { id: 'feedback', type: 'subAgentActivity', kind: 'interacted', agentThreadId: 'child', agentPath: '/root/prover' };
+    s.item(interaction); s.item(interaction);
+    expect(s.events.filter(e => e.kind === 'runtime_log')).toHaveLength(0);
+    expect(s.events.filter(e => e.kind === 'tool_call_started' && e.tool === 'codex_subagentInteraction')).toHaveLength(1);
+    expect(s.events.filter(e => e.kind === 'tool_call_started' && e.tool === 'Agent')).toHaveLength(1);
+    s.item({ id: 'answer', type: 'agentMessage', text: 'New result' }, 'child', 'new');
+    s.item({ ...interaction, id: 'follow-up' });
+    s.end('child', 'completed', 'new');
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed', 'running', 'completed']);
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ text: 'New result' }]);
+  });
+
+  it('retains text from a snapshot arriving after a terminal activity', () => {
+    const s = setup();
+    s.item({ id: 'done', type: 'subAgentActivity', kind: 'completed', agentThreadId: 'child', agentPath: '/root/prover' });
+    s.translator.hydrateChild('child', { parentThreadId: 'root', turns: [{ id: 'work', status: 'completed',
+      items: [{ id: 'answer', type: 'agentMessage', text: 'Recovered result' }] }] });
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ text: 'Recovered result' }]);
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed']);
+  });
+
+  it('recovers a final child snapshot while the root completion waits for attachment', () => {
+    const s = setup();
+    s.item({ id: 'spawn', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child' });
+    s.end('root', 'completed', 'native');
+    s.translator.hydrateChild('child', { turns: [{ id: 'work', status: 'completed', items: [{ id: 'answer', type: 'agentMessage', text: 'Final result' }] }] });
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ text: 'Final result' }]);
+    expect(s.events.filter(e => e.kind === 'tool_call_started' && e.tool === 'Agent')).toHaveLength(1);
+  });
+
+  it('recovers a reused child when only the terminal native activity follows buffered new work', () => {
+    const s = setup(); s.spawn(); s.end();
+    s.item({ id: 'feedback', type: 'subAgentActivity', kind: 'interacted', agentThreadId: 'child' });
+    s.item({ id: 'answer', type: 'agentMessage', text: 'Follow-up' }, 'child', 'new');
+    s.item({ id: 'done', type: 'subAgentActivity', kind: 'completed', agentThreadId: 'child' });
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed', 'running', 'completed']);
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed')).toMatchObject([{ text: 'Follow-up' }]);
+  });
+
+  it('reports unknown collaboration tools as visible compatibility errors', () => {
+    const s = setup();
+    s.item({ id: 'future', type: 'collabAgentToolCall', tool: 'futureTool' });
+    expect(s.events).toContainEqual(expect.objectContaining({ kind: 'runtime_log', level: 'error', message: expect.stringContaining('Update Codex CLI') }));
+  });
+
+  it.each(['followupTask', 'sendInput', 'resumeAgent'])('associates %s with a new run, including activity events', (tool) => {
+    const s = setup(); s.spawn(); s.end();
+    const item = { id: 'follow', type: 'collabAgentToolCall', tool, status: 'completed', receiverThreadIds: ['child'], agentsStates: {} };
+    s.item(item);
+    s.item({ id: 'follow', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child', agentPath: '/root/prover' });
+    s.item({ id: 'm', type: 'agentMessage', text: 'Follow-up result' }, 'child', 'new');
+    s.end('child', 'completed', 'new');
+    expect(s.events.filter(e => e.kind === 'tool_call_started' && e.tool === 'Agent')).toHaveLength(2);
+    expect(s.events.filter(e => e.kind === 'subagent_text_completed').at(-1)).toMatchObject({ text: 'Follow-up result' });
+  });
+
+  it('renders all collaboration tools without restarting a worker for sendMessage/listAgents', () => {
+    const s = setup(); s.spawn();
+    for (const tool of ['sendMessage', 'listAgents', 'interruptAgent']) {
+      s.item({ id: tool, type: 'collabAgentToolCall', tool, status: 'completed', receiverThreadIds: ['child'], agentsStates: {} });
+    }
+    expect(s.events.filter(e => e.kind === 'tool_call_started').map(e => e.tool)).toEqual(['Agent', 'codex_sendMessage', 'codex_listAgents', 'codex_interruptAgent']);
+    expect(s.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'stopped']);
+  });
+
   it('commits completed text once, scopes native ids, and confirms assistant messages', () => {
     const s = setup();
     s.translator.handle('item/agentMessage/delta', { threadId: 'root', turnId: 'native', itemId: 'm', delta: 'Hello' });

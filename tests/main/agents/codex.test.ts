@@ -11,7 +11,7 @@ vi.mock('@main/agents/spawn', () => ({
 }));
 
 const { CodexThread, buildCodexArgs } = await import('@main/agents/codex');
-const { threadOptions } = await import('@main/agents/codex/options');
+const { buildCodexTurnText, threadOptions } = await import('@main/agents/codex/options');
 
 function launch(overrides: Partial<ThreadLaunch> = {}): ThreadLaunch {
   return {
@@ -37,9 +37,22 @@ async function start(child: FakeProcess, threadId = 'native-thread') {
 function requests(child: FakeProcess) { return child.writtenJson().filter((m) => m.method); }
 
 describe('Codex app-server options', () => {
+  it('requests delegation only when Fuse roles are configured and preserves user restrictions', () => {
+    const text = 'Do not use subagents. Explain the theorem yourself.';
+    expect(buildCodexTurnText(launch(), text)).toBe(text);
+    expect(buildCodexTurnText(launch({ codex: { roles: {} } }), text)).toBe(text);
+    const prompt = buildCodexTurnText(launch({ codex: { roles: { 'fuse:prover': { description: 'Prove', config_file: '/private/prover.toml' } } } }), text);
+    expect(prompt).toContain('Use the configured fuse:* role subagents');
+    expect(prompt).toContain('explicit instructions in this conversation');
+    expect(prompt).toContain('take precedence over this default');
+    expect(prompt).toContain('does not expand the task scope');
+    expect(prompt.endsWith(text)).toBe(true);
+  });
+
   it('uses app-server and feature overrides', () => expect(buildCodexArgs()).toEqual(expect.arrayContaining(['app-server', '-c', 'features.multi_agent=true'])));
   it('sends sandbox, MCP, instructions, model and eight-agent config in private thread options', () => {
-    const options = threadOptions(launch({ codex: { developerInstructions: 'x'.repeat(40_000), mcpServers: { fuse: { command: 'node', args: [] } }, roles: { 'fuse:prover': { description: 'Prove', config_file: '/private/prover.toml' } } } }));
+    const options = threadOptions(launch({ codex: { developerInstructions: 'x'.repeat(40_000), mcpServers: { fuse: { command: 'node', args: [], tool_timeout_sec: 21960 } }, roles: { 'fuse:prover': { description: 'Prove', config_file: '/private/prover.toml' } } } }));
+    expect(options.config).toMatchObject({ mcp_servers: { fuse: { tool_timeout_sec: 21960 } } });
     expect(options).toMatchObject({ cwd: '/repo', model: 'gpt-5.6-sol', approvalPolicy: 'never', sandbox: 'workspace-write', developerInstructions: expect.any(String), config: expect.objectContaining({ model_reasoning_effort: 'low', agents: expect.objectContaining({ max_threads: 8, 'fuse:prover': { description: 'Prove', config_file: '/private/prover.toml' } }) }) });
   });
 });
@@ -49,10 +62,44 @@ describe('CodexThread app-server runtime', () => {
   beforeEach(() => { child = new FakeProcess(); events = []; spawnMock.mockReset(); spawnMock.mockReturnValue(child); });
   afterEach(async () => { child.exit(0); await flush(); });
 
+  it('surfaces incompatible initialization as a failed turn with upgrade guidance', async () => {
+    const thread = new CodexThread(launch(), e => events.push(e));
+    await thread.send('test', 'hello'); await flush();
+    const initialize = requests(child).find(m => m.method === 'initialize')!;
+    child.emitLine({ id: initialize.id, error: { code: -32601, message: 'Method not found: initialize' } });
+    await flush();
+    expect(events).toContainEqual(expect.objectContaining({ kind: 'turn_failed', message: expect.stringContaining('update Codex CLI') }));
+    expect(events).toContainEqual(expect.objectContaining({ kind: 'runtime_log', level: 'error', message: expect.stringContaining('Method not found') }));
+    expect(spawnMock).toHaveBeenCalledTimes(1);
+    expect(thread.busy).toBe(false);
+  });
+
+  it.each(['notification-first', 'response-first'])('does not attach its own root during synchronous startup: %s', async (order) => {
+    const thread = new CodexThread(launch(), event => events.push(event));
+    await thread.send('test', 'hello'); await flush();
+    const init = requests(child).find(message => message.method === 'initialize')!;
+    child.emitLine({ id: init.id, result: {} }); await flush();
+    const create = requests(child).find(message => message.method === 'thread/start')!;
+    const started = { method: 'thread/started', params: { thread: { id: 'root', source: 'vscode', turns: [] } } };
+    const response = { id: create.id, result: { thread: { id: 'root' } } };
+    for (const message of order === 'notification-first' ? [started, response] : [response, started]) child.emitLine(message);
+    await flush();
+    expect(requests(child).filter(message => message.method === 'thread/resume')).toHaveLength(0);
+    const turn = requests(child).find(message => message.method === 'turn/start')!;
+    child.emitLine({ id: turn.id, result: { turn: { id: 'native' } } }); await flush();
+    child.emitLine({ method: 'turn/completed', params: { threadId: 'root', turn: { id: 'native', status: 'completed' } } });
+    await flush();
+    expect(thread.providerThreadId).toBe('root');
+    expect(events.filter(event => event.kind === 'turn_completed')).toHaveLength(1);
+    expect(events.filter(event => event.kind === 'runtime_log' && event.level === 'error')).toHaveLength(0);
+    await thread.close();
+  });
+
   it.each(['read-only', 'workspace-write', 'danger-full-access'] as const)('applies %s to resumed threads', async (sandbox) => {
-    const thread = new CodexThread(launch({ providerThreadId: 'saved', config: { ...launch().config, codex_sandbox: sandbox } }), (e) => events.push(e));
+    const shellEnvironment = { GIT_CONFIG_COUNT: '1', GIT_CONFIG_KEY_0: 'safe.directory', GIT_CONFIG_VALUE_0: '/repo' };
+    const thread = new CodexThread(launch({ providerThreadId: 'saved', config: { ...launch().config, codex_sandbox: sandbox }, codex: { shellEnvironment, mcpServers: { fuse: { command: 'node', args: [], tool_timeout_sec: 21960 } } } }), (e) => events.push(e));
     await thread.send('a', 'continue'); await start(child, 'saved');
-    expect(requests(child).find((m) => m.method === 'thread/resume')).toMatchObject({ params: { threadId: 'saved', sandbox, approvalPolicy: 'never' } });
+    expect(requests(child).find((m) => m.method === 'thread/resume')).toMatchObject({ params: { threadId: 'saved', sandbox, approvalPolicy: 'never', config: { shell_environment_policy: { set: shellEnvironment }, mcp_servers: { fuse: { tool_timeout_sec: 21960 } } } } });
     expect(requests(child).some((m) => m.method === 'thread/start')).toBe(false);
     await thread.close();
   });
@@ -97,6 +144,20 @@ describe('CodexThread app-server runtime', () => {
     expect(requests(child).filter((m) => m.method === 'turn/start')).toHaveLength(1);
     child.emitLine({ method: 'turn/completed', params: { threadId: 'native-thread', turn: { id: 'native-turn', status: 'completed' } } }); await flush();
     expect(requests(child).filter((m) => m.method === 'turn/start')).toHaveLength(2);
+  });
+
+  it('sends the delegation request on initial and queued turns while retaining original user events', async () => {
+    const thread = new CodexThread(launch({ codex: { roles: { 'fuse:prover': { description: 'Prove', config_file: '/private/prover.toml' } } } }), event => events.push(event));
+    await thread.send('a', 'Prove the lemmas'); await thread.send('b', 'Now review them'); await start(child);
+    child.emitLine({ method: 'turn/completed', params: { threadId: 'native-thread', turn: { id: 'native-turn', status: 'completed' } } }); await flush();
+    const turns = requests(child).filter(message => message.method === 'turn/start');
+    expect(turns).toHaveLength(2);
+    for (const [index, text] of ['Prove the lemmas', 'Now review them'].entries()) {
+      expect(turns[index]).toMatchObject({ params: { input: [{ text: expect.stringContaining('Use the configured fuse:* role subagents') }] } });
+      expect(turns[index]).toMatchObject({ params: { input: [{ text: expect.stringContaining(text) }] } });
+    }
+    expect(events.filter(event => event.kind === 'user_message').map(event => event.text)).toEqual(['Prove the lemmas', 'Now review them']);
+    await thread.close();
   });
 
   it('interrupts a turn whose start response arrives after Stop', async () => {

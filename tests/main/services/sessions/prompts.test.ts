@@ -161,7 +161,7 @@ describe('renderSystemPrompt', () => {
     expect(prompt).toContain('Lean module for this blueprint: Sample');
     expect(prompt).toContain('# Delegation');
     const codex = renderSystemPrompt({ promptsDir: '/nonexistent', provider: 'codex' }, placement);
-    expect(codex).toContain('spawn_agent(agent_type="fuse:<role>", message=...)');
+    expect(codex).toContain('spawn_agent(task_name="prove_lemma", agent_type="fuse:prover", message=...)');
     expect(codex).not.toContain('Working alone');
   });
 
@@ -186,7 +186,7 @@ describe('renderSystemPrompt', () => {
     const claude = renderSystemPrompt({ promptsDir: dir, provider: 'claude' }, placement);
     expect(claude).toBe('Launch `Task(subagent_type="fuse:prover", prompt=...)`.\n\nUse the `Task` tool and `Grep`; make targeted `Edit`s.');
     const codex = renderSystemPrompt({ promptsDir: dir, provider: 'codex' }, placement);
-    expect(codex).toContain('spawn_agent(agent_type="fuse:prover", message=...)');
+    expect(codex).toContain('spawn_agent(task_name="role_task", agent_type="fuse:prover", message=...)');
     expect(codex).toContain('`spawn_agent` tool and `rg` through the shell');
     expect(codex).toContain('`apply_patch`s');
     expect(codex).toContain('at most 3 rounds per request');
@@ -196,9 +196,14 @@ describe('renderSystemPrompt', () => {
   it('gives Codex native orchestration without solo-work or self-review directives', () => {
     const promptsDir = join(__dirname, '..', '..', '..', '..', 'resources', 'prompts');
     const codex = renderSystemPrompt({ promptsDir, provider: 'codex' }, placement);
-    for (const tool of ['spawn_agent', 'wait', 'send_input', 'close_agent']) expect(codex).toContain(tool);
+    for (const tool of ['spawn_agent', 'task_name', 'wait_agent', 'followup_task', 'interrupt_agent']) expect(codex).toContain(tool);
     expect(codex).toContain('at most 8 agents active at once across all roles');
     expect(codex).toContain('Subagents cannot launch subagents');
+    expect(codex).toContain('without asking the user to repeat permission to use subagents');
+    expect(codex).toContain('Respect explicit requests to work alone or restrict delegation');
+    expect(codex).toContain('A tool-call timeout does not mean the background build stopped');
+    expect(codex).toContain('Do not launch another `lake`/`lean` compiler');
+    expect(codex).toContain('report the exact build or tool error separately from mathematical gaps');
     expect(codex).toContain('at most 3 rounds per request');
     expect(codex).not.toMatch(/Working alone|There are no subagents|review what you wrote|review the blueprint you wrote|`Task`|`Grep`|\bBash\b/);
     const claude = renderSystemPrompt({ promptsDir, provider: 'claude' }, placement);
@@ -213,6 +218,15 @@ describe('renderSystemPrompt', () => {
       expect(prompt).toContain('Repository root: /repo');
       expect(prompt).not.toMatch(/\{(repo_root|project_root|blueprint_tex|blueprint_name|lean_module|delegation_section)\}/);
     }
+  });
+
+  it('keeps Codex delegation centralized and supplies Windows-safe process guidance', () => {
+    const promptsDir = join(__dirname, '..', '..', '..', '..', 'resources', 'prompts');
+    const codex = renderSystemPrompt({ promptsDir, provider: 'codex' }, placement);
+    expect(codex).not.toContain('a question needs no edits and no subagents');
+    expect(codex).toContain('Get-Process');
+    expect(codex).toContain('tasklist');
+    expect(codex).toContain('Avoid WMI/CIM');
   });
 });
 

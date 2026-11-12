@@ -252,7 +252,7 @@ describe('POST /sessions', () => {
     expect(thread.launch.repoPath).toBe(world.repository.path);
     // The CLI's own environment carries no credentials: every shell command
     // the agent runs inherits it. The MCP server gets them through its config.
-    expect(thread.launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(thread.launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     const claude = thread.launch.claude!;
     expect(claude.allowedTools).toEqual(['mcp__fuse', 'Task']);
     expect(claude.disallowedTools).toEqual(['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion']);

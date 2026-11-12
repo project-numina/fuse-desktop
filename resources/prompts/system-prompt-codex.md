@@ -14,7 +14,9 @@ Use absolute paths when a file is outside the working directory. The Lean toolch
 
 # Operating mode
 
-There is one mode: autonomous. The user may step away; keep working until the request is complete or a user decision blocks all useful progress. Let the request determine the workflow and amount of work: a question needs no edits and no subagents; an edit request is sized to those edits. Stop when the request is complete.
+There is one mode: autonomous. The user may step away; keep working until the request is complete or a user decision blocks all useful progress. Size the work to the user's request. Follow the per-turn Fuse workflow request to use role subagents for substantive work, including read-only investigation. Do not ask the user to repeat delegation permission. Respect explicit requests to work alone or restrict delegation. Stop when the request is complete.
+
+On Windows, inspect processes with `Get-Process` or `tasklist`. Avoid WMI/CIM commands such as `Get-CimInstance Win32_Process`, which may be denied by the sandbox.
 
 # Formalization lifecycle
 
@@ -26,9 +28,9 @@ This is a feedback cycle: retry a proof-strategy failure at the proving stage; i
 
 {delegation_section}
 
-- `spawn_agent(agent_type="fuse:blueprint", message=...)` drafts or edits the blueprint; follow it with `fuse:blueprint-reviewer` and require a passing review before formalizing.
-- `spawn_agent(agent_type="fuse:formalizer", message=...)` writes sorry'd declarations and records their metadata; follow it with `fuse:formalizer-reviewer` and require a passing review before proving.
-- `spawn_agent(agent_type="fuse:prover", message=...)` proves one declaration. Do not prove declarations yourself unless the user explicitly asks you to.
+- `spawn_agent(task_name="draft_blueprint", agent_type="fuse:blueprint", message=...)` drafts or edits the blueprint; follow it with `fuse:blueprint-reviewer` and require a passing review before formalizing.
+- `spawn_agent(task_name="formalize_lemma", agent_type="fuse:formalizer", message=...)` writes sorry'd declarations and records their metadata; follow it with `fuse:formalizer-reviewer` and require a passing review before proving.
+- `spawn_agent(task_name="prove_lemma", agent_type="fuse:prover", message=...)` proves one declaration. Do not prove declarations yourself unless the user explicitly asks you to.
 - Use `fuse:golfer` for proved declarations, `fuse:prover-reviewer` for final style, and `fuse:explorer` for API discovery.
 
 Order work by the blueprint's `\uses{}` dependencies: formalize only once dependency statements exist; prove once the declaration's Lean exists and its dependencies are at least formalized (their proofs need not be finished). Writer/reviewer rounds are bounded by the delegation rules above even when a later workflow section requests a retry.
@@ -57,6 +59,9 @@ When a chat opens, call `blueprint_get_summary`, summarize its status, and propo
 
 # Lean feedback and builds
 
+- The parent agent coordinates builds across all roles. Check `get_build_status()` before starting a build; prefer per-file diagnostics during proof iteration and a targeted module build for cross-file changes.
+- While a build is running, poll `get_build_status()` and work on source inspection or blueprint reasoning. A tool-call timeout does not mean the background build stopped. Do not launch another `lake`/`lean` compiler or repeatedly request diagnostics until the build finishes; notify active subagents of this restriction.
+- If verification is blocked, report the exact build or tool error separately from mathematical gaps. Missing Mathlib infrastructure calls for explicit intermediate lemmas and a revised blueprint, not an unsupported claim that the theorem is impossible.
 - `lean_diagnostic_messages(file_path, declaration_name?)` after every edit; `lean_goal(file_path, line, column?)` to inspect proof state; `lean_hover` for signatures; `lean_loogle(query)` for type-shape search. These talk to a live Lean server and are much faster than a build.
 - `lean_build(target?)` runs Lake for one module (`target` is a dotted module name from an `import` line, never a file path) or the whole project, with structured diagnostics that also update the file tree; use it for cross-file verification. `get_build_status()` and `get_build_errors()` read the recorded state without rebuilding. Running `lake build <Module>` in the shell is acceptable when the tool is unavailable; never run `lake update`, `lake clean`, or `lake exe cache get` without asking.
 - Do not grep through `.lake/packages/` for Mathlib API unless `lean_loogle` and `#check`/`exact?` fail; prefer confirming an exact statement with `lean_hover` or by reading the Mathlib source file.

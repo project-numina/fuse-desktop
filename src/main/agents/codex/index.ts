@@ -1,7 +1,7 @@
 import type { AgentEvent, PermissionDecision } from '@shared/agent-events';
 import { asRecord, asString, now, type EventSink, type ProviderThread, type ThreadLaunch } from '../types';
 import { CodexTransport } from './transport';
-import { buildCodexArgs, threadOptions } from './options';
+import { buildCodexArgs, buildCodexTurnText, threadOptions } from './options';
 import { CodexEventTranslator } from './events';
 
 export { buildCodexArgs, CODEX_FEATURE_OVERRIDES } from './options';
@@ -100,7 +100,7 @@ export class CodexThread implements ProviderThread {
       }
       const response = await this.transport!.request('turn/start', {
         threadId: this.threadId,
-        input: [{ type: 'text', text: turn.text, text_elements: [] }],
+        input: [{ type: 'text', text: buildCodexTurnText(this.launch, turn.text), text_elements: [] }],
         ...(this.launch.config.effort ? { effort: this.launch.config.effort } : {}),
       });
       if (this.current === turn) {
@@ -178,7 +178,8 @@ export class CodexThread implements ProviderThread {
         this.events.hydrateChild(threadId, thread);
       }
     } catch (error) {
-      this.log(`Could not attach Codex child ${threadId}: ${String(error)}`);
+      this.emit({ kind: 'runtime_log', turnId: current?.turnId ?? null, level: 'error',
+        message: `Could not attach Codex child ${threadId}: ${String(error)}. Update Codex CLI and Fuse to compatible versions; child activity may be incomplete.`, at: now() });
     } finally {
       this.attached.delete(threadId);
     }
@@ -217,7 +218,11 @@ export class CodexThread implements ProviderThread {
   }
 
   private fail(message: string): void {
-    if (this.current) this.finish({ kind: 'turn_failed', turnId: this.current.turnId, message, at: now() });
+    if (this.current) {
+      const detail = `${message}\nIf Codex app-server cannot start or its protocol is incompatible, update Codex CLI and Fuse to compatible versions. No exec fallback was attempted.`;
+      this.emit({ kind: 'runtime_log', turnId: this.current.turnId, level: 'error', message: detail, at: now() });
+      this.finish({ kind: 'turn_failed', turnId: this.current.turnId, message: detail, at: now() });
+    }
   }
 
   private log(message: string): void {

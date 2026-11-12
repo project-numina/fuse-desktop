@@ -15,6 +15,9 @@ function launch(overrides: Partial<ThreadLaunch> = {}): ThreadLaunch {
 }
 
 describe('Claude Code options', () => {
+  it('allows six hours plus result-delivery grace for MCP calls by default', () => {
+    expect(buildClaudeEnvironment(launch()).MCP_TOOL_TIMEOUT).toBe('21960000');
+  });
   it('maps optional SDK arguments and resumes last', () => {
     const args = buildClaudeArgs(
       launch({

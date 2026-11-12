@@ -97,8 +97,9 @@ export function renderSystemPrompt(sources: SystemPromptSources, placement: Prom
     (sources.provider === 'codex' ? readIfPresent(join(sources.promptsDir, 'system-prompt-codex.md')) : null) ??
     readIfPresent(join(sources.promptsDir, 'system-prompt.md')) ??
     FALLBACK_SYSTEM_PROMPT;
-  const delegation =
-    readIfPresent(join(sources.promptsDir, `delegation-${sources.provider}.md`)) ?? FALLBACK_DELEGATION[sources.provider];
+  const delegation = sources.provider === 'codex'
+    ? CODEX_DELEGATION_INSTRUCTIONS
+    : readIfPresent(join(sources.promptsDir, 'delegation-claude.md')) ?? FALLBACK_DELEGATION.claude;
   // `claude --plugin-dir` loads the plugin's agents but not its root
   // CLAUDE.md, and Codex has no plugin mechanism at all, so the blueprint
   // conventions are folded into the system prompt for both providers.

@@ -3,8 +3,22 @@ import { CodexEventTranslator } from '@main/agents/codex/events';
 import { LocalSession } from '@main/services/sessions/session';
 import { SseRoom, type SseFrame } from '@main/server/sse';
 import { MemoryTranscript, fakeProject } from '@test/main/services/sessions/test-helpers';
+import { DEFAULT_AGENT_CONFIG } from '@main/store/rows';
 
 describe('Codex subagents through the session transcript', () => {
+  it('publishes Codex compatibility errors to the conversation', () => {
+    const frames: SseFrame[] = [], room = new SseRoom('session');
+    room.subscribe(frame => { if (frame) frames.push(frame); });
+    const session = new LocalSession({
+      sessionId: 'session', conversationId: 'conversation', agentJobId: 'job',
+      project: fakeProject('/repo', { agent: { ...DEFAULT_AGENT_CONFIG, provider: 'codex' } }),
+      room, transcript: new MemoryTranscript(), hooks: { onTurnEnded: () => undefined }, attachmentContext: null,
+      initialMessages: [], model: 'codex-model', providerThreadId: 'root',
+    });
+    session.consume({ kind: 'runtime_log', turnId: null, level: 'error', message: 'Incompatible protocol. Update Codex CLI and Fuse.', at: 1 });
+    expect(frames).toContainEqual(expect.objectContaining({ event: 'error', data: { message: 'Incompatible protocol. Update Codex CLI and Fuse.' } }));
+  });
+
   it('keeps spawn running until the child finishes and persists nested tools and text', () => {
     const frames: SseFrame[] = [], transcript = new MemoryTranscript(), room = new SseRoom('session');
     room.subscribe(frame => { if (frame) frames.push(frame); });

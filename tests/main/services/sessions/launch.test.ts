@@ -7,6 +7,8 @@ import { appPaths } from '@main/paths';
 import { DEFAULT_AGENT_CONFIG } from '@main/store/rows';
 import { buildThreadLaunch, codexMcpBootstrap, type LaunchInput } from '@main/services/sessions/launch';
 import { fakeProject } from '@test/main/services/sessions/test-helpers';
+import { threadOptions } from '@main/agents/codex/options';
+import { BUILD_REQUEST_TIMEOUT_MS } from '@shared/build-timeouts';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -32,10 +34,13 @@ function input(provider: 'claude' | 'codex'): LaunchInput {
 describe('buildThreadLaunch', () => {
   it('keeps the loopback token out of the CLI environment and the Codex command line', () => {
     const launch = buildThreadLaunch(input('codex'));
-    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     const fuse = launch.codex!.mcpServers!.fuse;
     expect(fuse.command).toBe(process.execPath);
     expect(fuse.env).toEqual({ ELECTRON_RUN_AS_NODE: '1' });
+    expect(fuse.tool_timeout_sec).toBe(21960);
+    expect(fuse.tool_timeout_sec! * 1000).toBeGreaterThan(BUILD_REQUEST_TIMEOUT_MS);
+    expect(threadOptions(launch).config).toMatchObject({ shell_environment_policy: { set: launch.codex!.shellEnvironment } });
     expect(JSON.stringify(fuse)).not.toContain('secret-token');
     const [bootstrap] = fuse.args;
     expect(bootstrap.endsWith(join('prompts', 'conv-1', 'mcp-bootstrap.cjs'))).toBe(true);
@@ -72,8 +77,9 @@ describe('buildThreadLaunch', () => {
 
   it('gives Claude the MCP config through a private file', () => {
     const launch = buildThreadLaunch(input('claude'));
-    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     expect(launch.claude!.mcpConfigJson).toBeUndefined();
+    expect(launch.codex).toBeUndefined();
     const file = launch.claude!.mcpConfigFile!;
     if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
     const config = JSON.parse(readFileSync(file, 'utf8')) as { mcpServers: { fuse: { env: Record<string, string>; args: string[] } } };

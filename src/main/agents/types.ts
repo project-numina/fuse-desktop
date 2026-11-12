@@ -37,11 +37,13 @@ export interface CodexLaunchOptions {
   developerInstructions?: string;
   /** Native roles stored under Fuse app data, never in the user's repository. */
   roles?: Record<string, { description: string; config_file: string }>;
+  /** Explicit shell values also inherited by native role agents. */
+  shellEnvironment?: Record<string, string>;
   /**
    * MCP configuration sent over app-server stdio. A private bootstrap file
    * carries the server's real environment; see `sessions/launch.ts`.
    */
-  mcpServers?: Record<string, { command: string; args: string[]; env?: Record<string, string> }>;
+  mcpServers?: Record<string, { command: string; args: string[]; env?: Record<string, string>; tool_timeout_sec?: number }>;
 }
 
 export interface ThreadLaunch {

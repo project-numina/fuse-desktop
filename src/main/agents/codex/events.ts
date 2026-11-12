@@ -35,6 +35,9 @@ export class CodexEventTranslator {
   private readonly pending = new Map<string, Notice[]>();
   private readonly subscribed = new Set<string>();
   private readonly spawns = new Map<string, Spawn>();
+  private readonly activityRuns = new Map<string, Spawn>();
+  private readonly seenActivities = new Set<string>();
+  private readonly hydrating = new Set<string>();
   private rootFinished = false;
   private localTurn: string | null = null;
 
@@ -47,39 +50,43 @@ export class CodexEventTranslator {
     this.started.clear(); this.completed.clear(); this.streamedReasoning.clear(); this.childTools.clear();
     this.nativeTurns.clear(); this.children.clear();
     this.pending.clear(); this.subscribed.clear(); this.spawns.clear();
+    this.activityRuns.clear(); this.seenActivities.clear(); this.hydrating.clear();
     this.rootFinished = false; this.localTurn = null;
   }
 
   /** Replay an attached child's snapshot, retaining native item identities for live dedup. */
   hydrateChild(threadId: string, thread: Record<string, unknown>): void {
-    if (threadId === this.hooks.rootThreadId() || this.rootFinished) return;
+    if (threadId === this.hooks.rootThreadId() || (this.rootFinished && !this.children.has(threadId))) return;
     this.observeThread({ ...thread, id: threadId });
     // A resume snapshot includes history. Only the newest native turn can belong
     // to the current run; replaying older turns would prematurely settle its card.
-    for (const raw of list(thread.turns).slice(-1)) {
-      const turn = record(raw), turnId = string(turn.id);
-      if (!turnId) continue;
-      this.handle('turn/started', { threadId, turn: { id: turnId } });
-      for (const itemRaw of list(turn.items)) {
-        const item = record(itemRaw);
-        // Completed turns are authoritative; active tool items carry their own status.
-        const done = terminal(turn.status) !== null || item.completedAtMs != null || terminal(item.status) !== null;
-        this.handle(done ? 'item/completed' : 'item/started', { threadId, turnId, item });
+    this.hydrating.add(threadId);
+    try {
+      for (const raw of list(thread.turns).slice(-1)) {
+        const turn = record(raw), turnId = string(turn.id);
+        if (!turnId) continue;
+        this.handle('turn/started', { threadId, turn: { id: turnId } });
+        for (const itemRaw of list(turn.items)) {
+          const item = record(itemRaw);
+          // Completed turns are authoritative; active tool items carry their own status.
+          const done = terminal(turn.status) !== null || item.completedAtMs != null || terminal(item.status) !== null;
+          this.handle(done ? 'item/completed' : 'item/started', { threadId, turnId, item });
+        }
+        if (terminal(turn.status)) this.handle('turn/completed', { threadId, turn });
       }
-      if (terminal(turn.status)) this.handle('turn/completed', { threadId, turn });
-    }
+    } finally { this.hydrating.delete(threadId); }
   }
 
   handle(method: string, value: unknown): void {
     const params = record(value);
     if (method === 'thread/started') { this.observeThread(record(params.thread)); return; }
     const thread = string(params.threadId), local = this.hooks.currentTurnId();
-    if (!thread || !local || this.rootFinished) return;
+    if (!thread || !local || (this.rootFinished && !this.hydrating.has(thread))) return;
     this.localTurn ??= local;
     const turn = string(params.turnId) ?? string(record(params.turn).id);
     if (turn && this.retiredTurns.has(scope(thread, turn))) return;
     const child = this.children.get(thread);
-    const awaitingRun = child?.settled && turn && !this.seenTurns.get(thread)?.has(turn);
+    const awaitingRun = child?.settled && turn && !this.seenTurns.get(thread)?.has(turn) && !this.hydrating.has(thread);
     if (thread !== this.hooks.rootThreadId() && (!child || awaitingRun)) {
       // Subscription notifications may beat spawn/sendInput association. Keep a
       // settled child's new turn out of the previous run's retirement history.
@@ -158,13 +165,15 @@ export class CodexEventTranslator {
   }
 
   private observeThread(thread: Record<string, unknown>): void {
-    const id = string(thread.id);
-    if (!id || id === this.hooks.rootThreadId() || this.rootFinished) return;
-    const source = record(record(thread.source).subAgent);
+    const id = string(thread.id), root = this.hooks.rootThreadId();
+    // thread/started can precede thread/start's response. A missing parent and
+    // a not-yet-assigned root are both null, but do not identify a child.
+    if (!id || !root || id === root || this.rootFinished) return;
+    const source = record(record(thread.source).subAgent ?? record(thread.source).subagent);
     // Current protocol uses thread_spawn; older app-server versions use spawn.
     const spawn = record(source.thread_spawn ?? source.spawn);
     const parent = string(thread.parentThreadId) ?? string(spawn.parent_thread_id) ?? string(spawn.parentThreadId);
-    if (parent !== this.hooks.rootThreadId()) return; // exactly one native level
+    if (!parent || parent !== root) return; // exactly one native level
     this.metadata.set(id, { ...this.metadata.get(id), ...spawn, ...thread });
     this.subscribe(id);
   }
@@ -202,6 +211,7 @@ export class CodexEventTranslator {
     const itemId = string(item.id), type = string(item.type);
     if (!itemId || !type) return;
     const id = scope(thread, turn, itemId), local = this.localTurn!;
+    if (type === 'subAgentActivity') { if (!parent) this.activity(id, item); return; }
     if (type === 'collabAgentToolCall') { if (!parent) this.collab(id, item, done); return; }
     if (type === 'agentMessage' || type === 'reasoning' || type === 'plan') {
       if (type === 'agentMessage' && !parent && !this.started.has(id)) {
@@ -247,7 +257,8 @@ export class CodexEventTranslator {
   private collab(id: string, item: Record<string, unknown>, done: boolean): void {
     const tool = string(item.tool);
     if (tool === 'spawnAgent') {
-      let spawn = this.spawns.get(id);
+      const firstChild = list(item.receiverThreadIds).find((x): x is string => typeof x === 'string');
+      let spawn = this.spawns.get(id) ?? (firstChild ? this.children.get(firstChild) : undefined);
       if (!spawn) {
         spawn = { id, item, children: new Set(), statuses: new Map(), agent: 'fuse:default', settled: false };
         this.spawns.set(id, spawn);
@@ -260,8 +271,8 @@ export class CodexEventTranslator {
       if (done && item.status === 'failed') { this.ensureAgent(spawn); this.settle(spawn, 'failed', this.result(item.agentsStates)); return; }
       // Spawn completion means launch success, never completion of the child's work.
       if (done) this.ensureAgent(spawn, receivers[0]);
-    } else if (['sendInput', 'wait', 'closeAgent', 'resumeAgent'].includes(tool ?? '')) {
-      if (tool === 'sendInput' && item.status !== 'failed') {
+    } else if (['sendInput', 'wait', 'closeAgent', 'resumeAgent', 'sendMessage', 'followupTask', 'interruptAgent', 'listAgents'].includes(tool ?? '')) {
+      if (['sendInput', 'followupTask', 'resumeAgent'].includes(tool ?? '') && item.status !== 'failed') {
         for (const receiver of list(item.receiverThreadIds)) {
           if (typeof receiver !== 'string') continue;
           const previous = this.children.get(receiver);
@@ -275,18 +286,57 @@ export class CodexEventTranslator {
           this.nativeTurns.delete(receiver);
           this.subscribed.delete(receiver);
           this.spawns.set(run.id, run); this.children.delete(receiver); this.associate(receiver, run);
+          this.activityRuns.set(id, run);
         }
       }
       this.start(id, `codex_${tool}`, { receiverThreadIds: item.receiverThreadIds, prompt: item.prompt });
       if (done) this.finish(id, this.result(item.agentsStates), item.status === 'failed');
-    } else return;
+    } else {
+      this.emit({ kind: 'runtime_log', turnId: this.localTurn, level: 'error',
+        message: `Unsupported Codex collaboration tool: ${tool ?? '(missing)'}. Update Codex CLI and Fuse to compatible versions.`, at: Date.now() });
+      return;
+    }
     for (const [thread, raw] of Object.entries(record(item.agentsStates))) {
       const state = record(raw), status = terminal(state.status);
       if (status) this.childStatus(thread, status, string(state.message));
     }
-    if (tool === 'closeAgent' && done && item.status !== 'failed') {
+    if ((tool === 'closeAgent' || tool === 'interruptAgent') && done && item.status !== 'failed') {
       for (const child of list(item.receiverThreadIds)) if (typeof child === 'string') this.childStatus(child, 'stopped', null);
     }
+  }
+
+  /** New collaboration events coexist with collabAgentToolCall, even in one turn. */
+  private activity(id: string, item: Record<string, unknown>): void {
+    const thread = string(item.agentThreadId), kind = string(item.kind);
+    if (!thread || !kind || this.seenActivities.has(`${id}:${kind}`)) return;
+    this.seenActivities.add(`${id}:${kind}`);
+    const knownRun = this.spawns.get(id) ?? this.activityRuns.get(id);
+    let spawn = knownRun ?? this.children.get(thread);
+    if (!spawn || (!knownRun && (kind === 'started' || this.pending.has(thread)) && spawn.settled)) {
+      // A follow-up starts a new run on the same child. Old snapshot turns must
+      // not settle that run, but notifications that beat this event are replayed.
+      if (spawn) {
+        for (const turn of this.seenTurns.get(thread) ?? []) this.retiredTurns.add(scope(thread, turn));
+        this.nativeTurns.delete(thread); this.subscribed.delete(thread);
+        this.children.delete(thread);
+      }
+      spawn = { id, item, children: new Set(), statuses: new Map(), agent: 'fuse:default', settled: false };
+      this.spawns.set(id, spawn);
+      this.metadata.set(thread, { ...this.metadata.get(thread), agentNickname: string(item.agentPath) ?? 'Codex subagent' });
+      this.associate(thread, spawn);
+    }
+    this.activityRuns.set(id, spawn);
+    if (kind === 'started') return;
+    if (kind === 'interacted') {
+      const interactionId = `${id}:interaction`;
+      this.start(interactionId, 'codex_subagentInteraction', { agentThreadId: thread, agentPath: item.agentPath });
+      this.finish(interactionId, null, false);
+      return;
+    }
+    const status = terminal(kind);
+    if (status) this.childStatus(thread, status, string(item.message));
+    else this.emit({ kind: 'runtime_log', turnId: this.localTurn, level: 'error',
+      message: `Unsupported Codex subagent activity: ${kind}. Update Codex CLI and Fuse to compatible versions.`, at: Date.now() });
   }
 
   private childStatus(thread: string, status: string, message: string | null): void {

@@ -16,12 +16,13 @@ import type { AppPaths } from '../../paths';
 import type { OpenProject } from '../types';
 import { renderSystemPrompt, type PromptPlacement } from './prompts';
 import { loadCodexRoles } from './codex-roles';
+import { codexGitEnvironment } from './codex-git';
+import { CODEX_MCP_TOOL_TIMEOUT_SEC, MCP_TOOL_TIMEOUT_MS } from '@shared/build-timeouts';
 
 /** Harness tools that would resume the agent outside Fuse's turn orchestration (or stall it). */
 export const DISALLOWED_HARNESS_TOOLS = ['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion'];
 export const ALLOWED_TOOL_PATTERNS = ['mcp__fuse', 'Task'];
-/** Long enough for a full `lake build` through the MCP server; the web's 3 h is for its remote provers. */
-export const MCP_TOOL_TIMEOUT_MS = 600_000;
+export { MCP_TOOL_TIMEOUT_MS } from '@shared/build-timeouts';
 
 export interface LaunchInput {
   conversationId: string;
@@ -171,12 +172,13 @@ export function buildThreadLaunch(input: LaunchInput): ThreadLaunch {
     writePrivateFile(bootstrap, codexMcpBootstrap(input.mcpServerPath, mcpEnv));
     launch.codex = {
       developerInstructions: systemPrompt,
+      shellEnvironment: codexGitEnvironment(project.clonePath, project.projectRoot),
       roles: Object.fromEntries(loadCodexRoles(promptsDir).map((role) => {
         const configFile = join(launchDir, 'agents', `${role.name.slice('fuse:'.length)}.toml`);
         writePrivateFile(configFile, `developer_instructions = ${JSON.stringify(role.developerInstructions)}\n`);
         return [role.name, { description: role.description, config_file: configFile }];
       })),
-      mcpServers: { fuse: { command: process.execPath, args: [bootstrap], env: { ELECTRON_RUN_AS_NODE: '1' } } },
+      mcpServers: { fuse: { command: process.execPath, args: [bootstrap], env: { ELECTRON_RUN_AS_NODE: '1' }, tool_timeout_sec: CODEX_MCP_TOOL_TIMEOUT_SEC } },
     };
   }
   return launch;
