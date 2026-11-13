@@ -151,6 +151,16 @@ export interface PageNavigationState {
   canGoForward: boolean;
 }
 
+export type StorageExportResult = { path: string; fileCount: number } | { downloaded: true; filename: string };
+
+/** Backend capabilities available without an Electron preload bridge. */
+export type BrowserApi = Pick<DesktopApi, 'providers' | 'settings' | 'server'> & {
+  storage: Pick<DesktopApi['storage'], 'info' | 'usage' | 'export'>;
+  dialog: Pick<DesktopApi['dialog'], 'pickFolder'>;
+  shell: Pick<DesktopApi['shell'], 'openExternal'>;
+};
+export type LocalApi = DesktopApi | BrowserApi;
+
 export interface DesktopApi {
   navigation: {
     state(): Promise<PageNavigationState>;
@@ -170,7 +180,7 @@ export interface DesktopApi {
     info(): Promise<{ path: string }>;
     usage(): Promise<StorageUsage>;
     open(): Promise<void>;
-    export(): Promise<{ path: string; fileCount: number } | null>;
+    export(): Promise<StorageExportResult | null>;
   };
   dialog: {
     /** Native folder picker; resolves to the absolute path or null. */

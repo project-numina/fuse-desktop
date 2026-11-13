@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 /**
  * Chat store + SSE lifecycle. Manages the message history and communicates
  * with the backend session API for real-time agent responses via SSE.
@@ -1067,7 +1068,7 @@ export function createChatStore({ repositoryOwner, repositoryName, blueprintName
       params.set('last_event_id', String(lastEventId));
     }
     eventSource = new EventSource(
-      `/api/sessions/${encodedSessionId}/events${params.size ? `?${params.toString()}` : ''}`,
+      authenticatedApiUrl(`/api/sessions/${encodedSessionId}/events${params.size ? `?${params.toString()}` : ''}`),
       { withCredentials: true },
     );
 

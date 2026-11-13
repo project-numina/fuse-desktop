@@ -7,19 +7,29 @@
  * absence of the bridge degrades to "not available" instead of a TypeError.
  */
 
-import type { DesktopApi } from '@shared/desktop';
+import type { DesktopApi, LocalApi } from '@shared/desktop';
+import { createBrowserApi } from './browser-api';
 import { registerRepository, type RegisteredRepository } from '@/lib/api/repositories';
 import { reloadDashboardRepositories } from '@/state/dashboard';
 
-/** The bridge, or `null` outside Electron. */
-export function desktopApi(): DesktopApi | null {
+/** Actual preload bridge. Only this API may perform native OS operations. */
+export function nativeDesktopApi(): DesktopApi | null {
   if (typeof window === 'undefined') return null;
-  // The preload types declare `window.fuse` as always present; at runtime it
-  // is only there inside the Electron renderer.
   return (window as { fuse?: DesktopApi }).fuse ?? null;
 }
 
+let browserApi: LocalApi | null = null;
+/** Common backend features, via IPC in Electron and authenticated HTTP in browsers. */
+export function desktopApi(): LocalApi | null {
+  if (typeof window === 'undefined') return null;
+  return nativeDesktopApi() ?? (browserApi ??= createBrowserApi());
+}
+
 export function isDesktop(): boolean {
+  return nativeDesktopApi() !== null;
+}
+
+export function canPickFolder(): boolean {
   return desktopApi() !== null;
 }
 
@@ -63,5 +73,5 @@ export async function pickAndRegisterFolder(): Promise<RegisteredRepository | nu
 
 /** Reveal a folder in the OS file manager; a no-op outside Electron. */
 export function showInFolder(path: string): void {
-  void desktopApi()?.shell.showInFolder(path);
+  void nativeDesktopApi()?.shell.showInFolder(path);
 }

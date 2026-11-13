@@ -1,3 +1,4 @@
+import '@/lib/local-auth';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource/inter/400.css';

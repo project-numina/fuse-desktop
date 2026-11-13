@@ -106,17 +106,24 @@ describe('buildApp', () => {
     await miss.text();
   });
 
-  it('exchanges the token query for the session cookie and redirects to the clean route', async () => {
+  it('serves the browser entry without setting a cookie or removing the token', async () => {
     const app = buildApp(test.ctx, TOKEN, rendererDir);
     const response = await app.request(`/repo/o/r?chat=abc&fuse_token=${TOKEN}`);
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('/repo/o/r?chat=abc');
-    expect(response.headers.get('set-cookie')).toContain(`${SESSION_COOKIE}=${TOKEN}`);
-    expect(response.headers.get('set-cookie')).toContain('HttpOnly');
-    const wrong = await app.request('/repo/o/r?fuse_token=nope');
-    expect(wrong.status).toBe(200);
-    expect(wrong.headers.get('set-cookie')).toBeNull();
-    await wrong.text();
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('set-cookie')).toBeNull();
+    await response.text();
+  });
+
+  it('authenticates API requests using the URL token without cookies', async () => {
+    const app = buildApp(test.ctx, TOKEN, rendererDir);
+    for (const path of ['/api/health', '/api/auth/me']) {
+      const response = await app.request(`${path}?fuse_token=${TOKEN}`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('set-cookie')).toBeNull();
+      expect((await app.request(`${path}?fuse_token=wrong`)).status).toBe(401);
+      expect((await app.request(path)).status).toBe(401);
+    }
   });
 });
 
@@ -132,10 +139,11 @@ describe('startLocalServer', () => {
     expect(withQuery.searchParams.get('chat')).toBe('abc');
     expect(withQuery.searchParams.get('fuse_token')).toBe(TOKEN);
     expect(new URL(server.entryUrl()).pathname).toBe('/');
-    // Round trip: the exchange middleware sees the token and redirects.
+    // Browser entry keeps the token in the URL and does not depend on cookies.
     const response = await fetch(server.entryUrl('/repo/o/r#3.2'), { redirect: 'manual' });
-    expect(response.status).toBe(302);
-    expect(response.headers.get('location')).toBe('/repo/o/r');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+    expect(response.headers.get('set-cookie')).toBeNull();
     await response.text();
     await stop(server);
   });
