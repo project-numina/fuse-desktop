@@ -1,7 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen, session, shell, systemPreferences } from 'electron';
 import { join } from 'node:path';
-import { homedir } from 'node:os';
-import { existsSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { ProviderId } from '@shared/agent-events';
 import { DESKTOP_IPC, type AppSettings, type ThemePreference } from '@shared/desktop';
@@ -9,9 +8,9 @@ import { detectProviders } from './agents/detect';
 import { listModels, stopModelProbes } from './agents/models';
 import { AttentionTracker } from './attention';
 import { exportLocalData } from './data-export';
-import { createStorageUsageReader, type StorageRoot } from './storage-usage';
-import { elanHome } from './services/lean/process';
-import { workspaceExecutionContext } from './services/lean/paths';
+import { readLocalStorageUsage } from './local-capabilities';
+import { acquireInstanceLock, checkPort, parsePort } from './instance-lock.mjs';
+import { dataPath } from './launch-options';
 import { buildApplicationMenu, installContextMenu } from './menu';
 import { appPaths } from './paths';
 import { SESSION_COOKIE, startLocalServer, type LocalServer } from './server/app';
@@ -31,7 +30,7 @@ const isDev = !app.isPackaged;
 const DARK_BG = '#13151a';
 const LIGHT_BG = '#fffefc';
 /** Fixed port in development so Vite's `/api` proxy can find the backend. */
-const DEV_API_PORT = Number(process.env.FUSE_API_PORT ?? 8765);
+const DEV_API_PORT = parsePort(process.env.FUSE_API_PORT ?? '8765');
 /**
  * In development electron-vite serves the renderer from Vite (whatever port
  * it managed to bind) and proxies `/api` to the loopback backend; otherwise
@@ -54,7 +53,10 @@ let quitting = false;
 
 // A second launch (Dock click, `open -a`, taskbar) focuses the running
 // window instead of starting a second app that would fight over data files.
-if (!app.requestSingleInstanceLock()) {
+const desktopInstance = app.requestSingleInstanceLock();
+// Reserve before readiness and shell/data initialization; report errors at ready.
+const runtimeInstance = desktopInstance ? acquireInstanceLock().then(() => null, error => error as Error) : Promise.resolve(null);
+if (!desktopInstance) {
   app.quit();
 } else {
   app.on('second-instance', () => {
@@ -229,26 +231,7 @@ function registerIpc(): void {
     return saved;
   });
   ipcMain.handle(DESKTOP_IPC.storageInfo, () => ({ path: app.getPath('userData') }));
-  const readStorageUsage = createStorageUsageReader();
-  ipcMain.handle(DESKTOP_IPC.storageUsage, () => {
-    const roots: StorageRoot[] = [
-      { id: 'fuse', label: 'Fuse app data', path: app.getPath('userData'), kind: 'fuse' },
-      { id: 'elan', label: 'Lean toolchains & Elan data', path: elanHome(), kind: 'lean' },
-      { id: 'mathlib-cache', label: 'Mathlib download cache', path: process.env.MATHLIB_CACHE_DIR?.trim() || join(process.env.XDG_CACHE_HOME?.trim() || join(homedir(), '.cache'), 'mathlib'), kind: 'lean' },
-    ];
-    for (const repo of registry.listRepositories()) {
-      const projects = new Set(registry.listBlueprints(repo.id).map(blueprint => blueprint.project_subdir || ''));
-      if (!projects.size || existsSync(join(repo.path, '.lake'))) projects.add('');
-      for (const project of [...projects].sort()) {
-        // Reuse the same repository-boundary checks as Lean execution.
-        let projectRoot: string;
-        try { projectRoot = workspaceExecutionContext(repo.path, project).projectRoot; }
-        catch { continue; }
-        roots.push({ id: `repo-${repo.id}:${project}`, label: project ? `${repo.name} / ${project}` : repo.name, path: join(projectRoot, '.lake'), kind: 'repository' });
-      }
-    }
-    return readStorageUsage(roots);
-  });
+  ipcMain.handle(DESKTOP_IPC.storageUsage, () => readLocalStorageUsage(ctx));
   ipcMain.handle(DESKTOP_IPC.storageOpen, async () => {
     const error = await shell.openPath(app.getPath('userData'));
     if (error) throw new Error('Could not open the local data folder.');
@@ -322,6 +305,13 @@ async function shutdownServices(): Promise<void> {
 }
 
 app.whenReady().then(async () => {
+  if (!desktopInstance) return;
+  const lockError = await runtimeInstance;
+  if (lockError) throw lockError;
+  if (isDev) await checkPort(DEV_API_PORT);
+  const sharedData = dataPath();
+  mkdirSync(sharedData, { recursive: true });
+  app.setPath('userData', sharedData);
   // Development runs inside Electron.app, whose generic Dock icon otherwise wins.
   if (process.platform === 'darwin') app.dock?.setIcon(join(resourcesDir(), 'icon.png'));
   app.setAboutPanelOptions({
@@ -387,6 +377,10 @@ app.whenReady().then(async () => {
     // Dock/accessibility activation can arrive while the backend is shutting down.
     if (!quitting && BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+}).catch((error) => {
+  console.error('[fuse] could not start:', error);
+  dialog.showErrorBox('Fuse could not start', error instanceof Error ? error.message : String(error));
+  app.exit(1);
 });
 
 app.on('window-all-closed', () => {
