@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 import { useCallback, useState, type ComponentProps } from 'react';
 
 import type { BlueprintMode, SidebarOcrStatus } from '@/features/blueprint/components/BlueprintSidebar';
@@ -26,8 +27,8 @@ type LeanCardPanel = ReturnType<typeof useLeanCardPanel>;
 function rawFileUrl(owner: string, repo: string, file: string | null): string | undefined {
   if (!file) return undefined;
   const path = file.split('/').map(encodeURIComponent).join('/');
-  return `/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
-    + `/files-raw/${path}`;
+  return authenticatedApiUrl(`/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
+    + `/files-raw/${path}`);
 }
 
 function useProjectViewActions(controller: BlueprintWorkspaceController) {

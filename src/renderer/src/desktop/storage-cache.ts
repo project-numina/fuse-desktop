@@ -1,8 +1,8 @@
-import type { DesktopApi, StorageUsage } from '@shared/desktop';
+import type { LocalApi, StorageUsage } from '@shared/desktop';
 import { MemoryResource } from '@/lib/memory-resource';
 
-let caches = new WeakMap<DesktopApi['storage'], MemoryResource<StorageUsage>>();
-export function storageCache(storage: DesktopApi['storage']) {
+let caches = new WeakMap<LocalApi['storage'], MemoryResource<StorageUsage>>();
+export function storageCache(storage: LocalApi['storage']) {
   let cache = caches.get(storage);
   if (!cache) {
     cache = new MemoryResource(() => storage.usage(), 30_000);

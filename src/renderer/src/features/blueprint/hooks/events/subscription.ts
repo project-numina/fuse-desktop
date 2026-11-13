@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 import { makeBackoff } from '@/lib/sse';
 import type { LeanInvalidationController } from './invalidation';
 import type { BlueprintStreamHandlers } from './handlers';
@@ -104,7 +105,7 @@ function bindConnectionLifecycle(state: SubscriptionState, source: EventSource):
 function subscribe(state: SubscriptionState): void {
   clearReconnectTimer(state);
   const source = new EventSource(
-    streamUrl(state.identity, state.refs.runtimeTag.current),
+    authenticatedApiUrl(streamUrl(state.identity, state.refs.runtimeTag.current)),
     { withCredentials: true },
   );
   state.source = source;

@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 import type { RepositorySource } from '@/lib/api';
 import type { ChatContextAttachment } from '@/features/chat/state/types';
 
@@ -72,7 +73,7 @@ export function sourceEndpoint(
   const base = `/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   const sourcePath = `/sources/${encodeURIComponent(source.id)}/${suffix}`;
   const query = blueprintId ? `?blueprint_id=${encodeURIComponent(blueprintId)}` : '';
-  return `${base}${sourcePath}${query}`;
+  return authenticatedApiUrl(`${base}${sourcePath}${query}`);
 }
 
 function repositorySourceUrls(
@@ -110,8 +111,8 @@ export function createSourceDisplayModel(
     hasSource: repositorySources.length > 0 || !!legacyContent || legacyType === 'pdf',
     sourceContent,
     sourceFileName: source?.display_name || (hasPdf ? `${blueprint.id}-source-ocr.tex` : `${blueprint.id}-source.tex`),
-    sourceFileUrl: source ? urls?.sourceFileUrl || '' : sourceContent ? blueprint.source_file_url || '' : '',
-    pdfUrl: publicShare ? '' : source ? urls?.pdfUrl || '' : hasPdf ? blueprint.source_pdf_url || '' : '',
+    sourceFileUrl: authenticatedApiUrl(source ? urls?.sourceFileUrl || '' : sourceContent ? blueprint.source_file_url || '' : ''),
+    pdfUrl: authenticatedApiUrl(publicShare ? '' : source ? urls?.pdfUrl || '' : hasPdf ? blueprint.source_pdf_url || '' : ''),
     textArtifactKind: urls?.textArtifactKind ?? null,
   };
 }

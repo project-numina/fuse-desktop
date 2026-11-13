@@ -10,7 +10,6 @@ import {
   isDesktop,
   openFolderAsRepository,
   pickAndRegisterFolder,
-  pickFolder,
   repositoryRoute,
   showInFolder,
 } from '@/desktop/bridge';
@@ -30,11 +29,13 @@ describe('desktop bridge helpers', () => {
     delete (window as { fuse?: unknown }).fuse;
   });
 
-  it('reports the bridge as absent in a plain browser and degrades gracefully', async () => {
-    expect(desktopApi()).toBeNull();
+  it('provides backend features in a browser without claiming native capabilities', () => {
+    expect(desktopApi()).not.toBeNull();
+    expect(desktopApi()).toBe(desktopApi());
     expect(isDesktop()).toBe(false);
-    await expect(pickFolder()).resolves.toBeNull();
-    await expect(pickAndRegisterFolder()).resolves.toBeNull();
+    expect(desktopApi()).not.toHaveProperty('platform');
+    expect(desktopApi()).not.toHaveProperty('navigation');
+    expect(desktopApi()?.shell).not.toHaveProperty('showInFolder');
     expect(() => showInFolder('/x')).not.toThrow();
     expect(api.registerRepository).not.toHaveBeenCalled();
   });
