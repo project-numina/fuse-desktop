@@ -28,7 +28,7 @@ import type {
 import type { AppContext } from '../../server/context';
 import { HttpError } from '../../server/errors';
 import { roomKeyFor, type OpenProject } from '../types';
-import { AbortError, isAbortError } from './async';
+import { AbortError, isAbortError, withTimeout } from './async';
 import { BuildBus, BuildCoordinator, SnapshotWatcher, type BuildState } from './build/events';
 import { depsReady, hasLakefile, isDirectory, readSnapshot, repoRelativeCounts, snapshotCounts, sourceContentHash, type Snapshot } from './build/snapshot';
 import { VerificationQueue } from './verification-queue';
@@ -74,6 +74,8 @@ interface ProjectRuntime {
   controllers: Set<AbortController>;
   /** A build stopped a wanted language server and nothing has restarted it yet. */
   restartPending: boolean;
+  /** One compiler job at a time for this project: a build or a language-server query. */
+  queue: VerificationQueue;
 }
 
 export interface LeanServiceOptions {
@@ -84,22 +86,6 @@ export interface LeanServiceOptions {
 
 function hasTacticGoals(result: GoalQuery): boolean {
   return Boolean(result.goals?.length || result.goalsBefore?.length || result.goalsAfter?.length);
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number, describe: () => Error): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(describe()), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error);
-      },
-    );
-  });
 }
 
 /** Atomic write via a sibling temp file, fsync and rename. */
@@ -187,7 +173,7 @@ export class LeanService {
     if (this.shuttingDown) return Promise.resolve({ status: 'failed', output: null, error: 'Fuse is shutting down' });
     const runtime = this.runtime(project);
     const incoming: BuildRequest = { target: options.target ?? null };
-    const build = runtime.coordinator.request(incoming, (request) => this.verificationQueue.exclusive(
+    const build = runtime.coordinator.request(incoming, (request) => runtime.queue.exclusive(
       () => this.runBuild(project, runtime, request, options), this.shutdownController.signal,
     ));
     // The eager LSP restart waits for the coordinator to clear the flag:
@@ -261,7 +247,7 @@ export class LeanService {
   // ── Infoview ─────────────────────────────────────────────────────────────
 
   async goals(project: OpenProject, req: GoalRequest, signal?: AbortSignal): Promise<GoalResponse> {
-    return this.verificationQueue.exclusive(() => this.runGoals(project, req, signal), signal);
+    return this.queued(project, req.file_path, () => this.runGoals(project, req, signal), signal);
   }
 
   private async runGoals(project: OpenProject, req: GoalRequest, signal?: AbortSignal): Promise<GoalResponse> {
@@ -299,7 +285,7 @@ export class LeanService {
   }
 
   async hover(project: OpenProject, req: HoverRequest, signal?: AbortSignal): Promise<HoverResponse> {
-    return this.verificationQueue.exclusive(() => this.runHover(project, req, signal), signal);
+    return this.queued(project, req.file_path, () => this.runHover(project, req, signal), signal);
   }
 
   private async runHover(project: OpenProject, req: HoverRequest, signal?: AbortSignal): Promise<HoverResponse> {
@@ -325,7 +311,7 @@ export class LeanService {
   }
 
   async reload(project: OpenProject, req: ReloadFileRequest): Promise<OkResponse> {
-    return this.verificationQueue.exclusive(() => this.runReload(project, req));
+    return this.queued(project, req.file_path, () => this.runReload(project, req));
   }
 
   private async runReload(project: OpenProject, req: ReloadFileRequest): Promise<OkResponse> {
@@ -341,12 +327,21 @@ export class LeanService {
     });
   }
 
-  private readonly verificationQueue = new VerificationQueue();
+  /**
+   * Queries take the project's turn, but only once it can answer: one sent
+   * during a build is refused at once, as the editors and the agent expect,
+   * rather than left waiting for however long the build takes.
+   */
+  private async queued<T>(project: OpenProject, filePath: string, work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+    resolveExistingFileUnderClone(project.clonePath, filePath);
+    return (await this.ensureLspReady(project)).queue.exclusive(work, signal);
+  }
 
   async diagnostics(project: OpenProject, req: DiagnosticRequest, signal?: AbortSignal): Promise<DiagnosticResponse> {
     const absolute = resolveExistingFileUnderClone(project.clonePath, req.file_path);
+    const { queue } = await this.ensureLspReady(project);
     const version = sourceContentHash(absolute) ?? '';
-    return this.verificationQueue.run(absolute, version, JSON.stringify([req.start_line ?? null, req.end_line ?? null]),
+    return queue.run(absolute, version, JSON.stringify([req.start_line ?? null, req.end_line ?? null]),
       () => sourceContentHash(absolute) ?? '', () => this.runDiagnostics(project, req, signal), signal);
   }
 
@@ -466,6 +461,7 @@ export class LeanService {
         activeState: null,
         controllers: new Set(),
         restartPending: false,
+        queue: new VerificationQueue(),
       };
       this.runtimes.set(projectRoot, created);
       runtime = created;
