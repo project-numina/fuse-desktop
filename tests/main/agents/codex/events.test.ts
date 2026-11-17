@@ -50,6 +50,35 @@ describe('CodexEventTranslator', () => {
     expect(s.hooks.subscribeChild).toHaveBeenCalledTimes(1);
   });
 
+  it('holds a native child card until its snapshot names the role, keeping early output in order', () => {
+    const s = setup();
+    const activity = { id: 'spawn', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child', agentPath: '/root/prove_lemma' };
+    s.item(activity, 'root', 'native', 'started'); s.item(activity);
+    s.item({ id: 'early', type: 'agentMessage', text: 'Early text' }, 'child', 'work');
+    expect(s.events).toEqual([]);
+    expect(s.hooks.subscribeChild).toHaveBeenCalledExactlyOnceWith('child');
+    s.translator.hydrateChild('child', { parentThreadId: 'root', agentRole: 'fuse:prover', agentNickname: 'Dewey', turns: [{ id: 'work', status: 'inProgress', items: [] }] });
+    expect(s.events.map(e => e.kind)).toEqual(['tool_call_started', 'agent_status', 'subagent_text_completed']);
+    expect(s.events[0]).toMatchObject({ tool: 'Agent', input: { subagent_type: 'fuse:prover', description: '/root/prove_lemma' } });
+    expect(s.events[1]).toMatchObject({ agent: 'fuse:prover', status: 'running' });
+  });
+
+  it('shows a held child card with its output when the snapshot cannot be read or the run ends first', () => {
+    const unreadable = setup();
+    unreadable.item({ id: 'spawn', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child' });
+    unreadable.item({ id: 'early', type: 'agentMessage', text: 'Early text' }, 'child', 'work');
+    unreadable.translator.reveal('child');
+    expect(unreadable.events.map(e => e.kind)).toEqual(['tool_call_started', 'agent_status', 'subagent_text_completed']);
+    expect(unreadable.events[0]).toMatchObject({ input: { subagent_type: 'fuse:default' } });
+
+    const ended = setup();
+    ended.item({ id: 'spawn', type: 'subAgentActivity', kind: 'started', agentThreadId: 'child' });
+    ended.item({ id: 'early', type: 'agentMessage', text: 'Early text' }, 'child', 'work');
+    ended.item({ id: 'done', type: 'subAgentActivity', kind: 'completed', agentThreadId: 'child' });
+    expect(ended.events.map(e => e.kind)).toEqual(['tool_call_started', 'agent_status', 'subagent_text_completed', 'agent_status', 'tool_call_completed']);
+    expect(ended.events.filter(e => e.kind === 'agent_status').map(e => e.status)).toEqual(['running', 'completed']);
+  });
+
   it('handles native interacted events without treating them as incompatibility or restarting an idle worker', () => {
     const s = setup(); s.spawn(); s.end();
     const interaction = { id: 'feedback', type: 'subAgentActivity', kind: 'interacted', agentThreadId: 'child', agentPath: '/root/prover' };

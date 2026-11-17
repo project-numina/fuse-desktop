@@ -38,6 +38,8 @@ export class CodexEventTranslator {
   private readonly activityRuns = new Map<string, Spawn>();
   private readonly seenActivities = new Set<string>();
   private readonly hydrating = new Set<string>();
+  /** Children whose Agent card waits for the role that only their snapshot carries. */
+  private readonly unrevealed = new Set<string>();
   private rootFinished = false;
   private localTurn: string | null = null;
 
@@ -50,7 +52,7 @@ export class CodexEventTranslator {
     this.started.clear(); this.completed.clear(); this.streamedReasoning.clear(); this.childTools.clear();
     this.nativeTurns.clear(); this.children.clear();
     this.pending.clear(); this.subscribed.clear(); this.spawns.clear();
-    this.activityRuns.clear(); this.seenActivities.clear(); this.hydrating.clear();
+    this.activityRuns.clear(); this.seenActivities.clear(); this.hydrating.clear(); this.unrevealed.clear();
     this.rootFinished = false; this.localTurn = null;
   }
 
@@ -58,6 +60,7 @@ export class CodexEventTranslator {
   hydrateChild(threadId: string, thread: Record<string, unknown>): void {
     if (threadId === this.hooks.rootThreadId() || (this.rootFinished && !this.children.has(threadId))) return;
     this.observeThread({ ...thread, id: threadId });
+    this.reveal(threadId);
     // A resume snapshot includes history. Only the newest native turn can belong
     // to the current run; replaying older turns would prematurely settle its card.
     this.hydrating.add(threadId);
@@ -87,9 +90,10 @@ export class CodexEventTranslator {
     if (turn && this.retiredTurns.has(scope(thread, turn))) return;
     const child = this.children.get(thread);
     const awaitingRun = child?.settled && turn && !this.seenTurns.get(thread)?.has(turn) && !this.hydrating.has(thread);
-    if (thread !== this.hooks.rootThreadId() && (!child || awaitingRun)) {
+    if (thread !== this.hooks.rootThreadId() && (!child || awaitingRun || this.unrevealed.has(thread))) {
       // Subscription notifications may beat spawn/sendInput association. Keep a
       // settled child's new turn out of the previous run's retirement history.
+      // A child's own events also wait for its Agent card.
       if (this.isSupported(method)) {
         const queue = this.pending.get(thread) ?? [];
         queue.push({ method, params }); this.pending.set(thread, queue);
@@ -183,23 +187,45 @@ export class CodexEventTranslator {
     this.subscribed.add(thread); this.hooks.subscribeChild(thread);
   }
 
-  private associate(thread: string, spawn: Spawn): void {
+  private associate(thread: string, spawn: Spawn, awaitRole = false): void {
     if (this.children.has(thread) || spawn.settled) return;
     this.children.set(thread, spawn); spawn.children.add(thread);
+    // A subAgentActivity names neither role nor prompt, and a card's type is
+    // fixed once emitted. The role arrives with the child's snapshot, so the
+    // card and the child's buffered events wait for it (see `reveal`).
+    if (awaitRole && !this.role(thread)) { this.unrevealed.add(thread); this.subscribe(thread); return; }
     this.ensureAgent(spawn, thread);
     this.subscribe(thread);
+    this.replayPending(thread);
+  }
+
+  /** Show a waiting child's card: its snapshot arrived, could not be read, or its run ended. */
+  reveal(thread: string): void {
+    const spawn = this.children.get(thread);
+    if (!this.unrevealed.delete(thread) || !spawn) return;
+    this.ensureAgent(spawn, thread);
+    this.replayPending(thread);
+  }
+
+  private replayPending(thread: string): void {
     const pending = this.pending.get(thread) ?? [];
     this.pending.delete(thread);
     for (const notice of pending) this.handle(notice.method, notice.params);
   }
 
+  private role(thread: string): string | null {
+    const meta = this.metadata.get(thread) ?? {};
+    return string(meta.agentRole) ?? string(meta.agent_role);
+  }
+
   private ensureAgent(spawn: Spawn, thread?: string): void {
     const meta = this.metadata.get(thread ?? '') ?? {};
-    const role = string(meta.agentRole) ?? string(meta.agent_role) ?? 'default';
+    const role = this.role(thread ?? '') ?? 'default';
     if (!this.started.has(spawn.id)) spawn.agent = role.startsWith('fuse:') ? role : `fuse:${role}`;
     this.start(spawn.id, 'Agent', {
       subagent_type: spawn.agent,
-      description: string(meta.agentNickname) ?? string(meta.agent_nickname) ?? string(spawn.item.prompt)?.slice(0, 120) ?? 'Codex subagent',
+      description: string(meta.agentPath) ?? string(meta.agent_path) ?? string(meta.agentNickname) ?? string(meta.agent_nickname)
+        ?? string(spawn.item.prompt)?.slice(0, 120) ?? 'Codex subagent',
       prompt: string(spawn.item.prompt) ?? '',
     });
     if (!this.started.has(`${spawn.id}:running`)) {
@@ -315,6 +341,7 @@ export class CodexEventTranslator {
     if (!spawn || (!knownRun && (kind === 'started' || this.pending.has(thread)) && spawn.settled)) {
       // A follow-up starts a new run on the same child. Old snapshot turns must
       // not settle that run, but notifications that beat this event are replayed.
+      const firstRun = !spawn;
       if (spawn) {
         for (const turn of this.seenTurns.get(thread) ?? []) this.retiredTurns.add(scope(thread, turn));
         this.nativeTurns.delete(thread); this.subscribed.delete(thread);
@@ -322,8 +349,9 @@ export class CodexEventTranslator {
       }
       spawn = { id, item, children: new Set(), statuses: new Map(), agent: 'fuse:default', settled: false };
       this.spawns.set(id, spawn);
-      this.metadata.set(thread, { ...this.metadata.get(thread), agentNickname: string(item.agentPath) ?? 'Codex subagent' });
-      this.associate(thread, spawn);
+      const agentPath = string(item.agentPath);
+      if (agentPath) this.metadata.set(thread, { ...this.metadata.get(thread), agentPath });
+      this.associate(thread, spawn, firstRun);
     }
     this.activityRuns.set(id, spawn);
     if (kind === 'started') return;
@@ -350,6 +378,9 @@ export class CodexEventTranslator {
   }
 
   private settle(spawn: Spawn, status: string, message: string | null): void {
+    if (spawn.settled) return;
+    // Buffered child output belongs on the card before the card is closed.
+    for (const thread of spawn.children) this.reveal(thread);
     if (spawn.settled) return;
     this.ensureAgent(spawn); spawn.settled = true;
     // Remove SessionToolEvents' live child before tool_result can infer completed.

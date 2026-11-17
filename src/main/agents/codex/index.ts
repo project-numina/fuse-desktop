@@ -178,6 +178,7 @@ export class CodexThread implements ProviderThread {
         this.events.hydrateChild(threadId, thread);
       }
     } catch (error) {
+      this.events.reveal(threadId);
       this.emit({ kind: 'runtime_log', turnId: current?.turnId ?? null, level: 'error',
         message: `Could not attach Codex child ${threadId}: ${String(error)}. Update Codex CLI and Fuse to compatible versions; child activity may be incomplete.`, at: now() });
     } finally {
