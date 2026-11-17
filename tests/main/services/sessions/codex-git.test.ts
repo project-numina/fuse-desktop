@@ -49,7 +49,7 @@ describe('codexGitEnvironment', () => {
     fs.mkdirSync(join(outside, '.git'));
     fs.mkdirSync(join(root, '.lake/packages'), { recursive: true });
     fs.symlinkSync(outside, dependency, process.platform === 'win32' ? 'junction' : 'dir');
-    expect(trustedPaths(codexGitEnvironment(root, root, {}))).toEqual([root.replace(/\\/g, '/')]);
+    expect(trustedPaths(codexGitEnvironment(root, root, {}))).toEqual([fs.realpathSync(root).replace(/\\/g, '/')]);
   });
 
   it('resolves the ownership error for selected repositories without trusting unrelated repositories', () => {
