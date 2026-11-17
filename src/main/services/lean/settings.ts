@@ -1,9 +1,11 @@
 /**
  * Tunables for the Lean build pipeline and language server, with the same
- * defaults the hosted backend used. Every value can be overridden through
+ * desktop defaults. Every value can be overridden through
  * the environment so a slow machine (or a CI runner) can stretch the
  * timeouts without a code change.
  */
+
+import { LEAN_BUILD_TIMEOUT_MS } from '@shared/build-timeouts';
 
 export interface LeanBuildSettings {
   /** `LEAN_NUM_THREADS` handed to every lake/lean subprocess. */
@@ -36,7 +38,7 @@ export interface LeanBuildSettings {
 
 export const DEFAULT_LEAN_SETTINGS: LeanBuildSettings = {
   leanNumThreads: 2,
-  leanBuildTimeoutMs: 900_000,
+  leanBuildTimeoutMs: LEAN_BUILD_TIMEOUT_MS,
   lakeCacheGetTimeoutMs: 300_000,
   lakeUpdateTimeoutMs: 600_000,
   toolchainInstallTimeoutMs: 600_000,

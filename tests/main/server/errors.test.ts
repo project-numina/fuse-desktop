@@ -15,6 +15,7 @@ import {
   notFound,
   validationError,
 } from '@main/server/errors';
+import { leanServiceError } from '@main/services/lean/errors';
 
 function respond(error: unknown, path = '/resource'): Promise<Response> {
   const app = new Hono();
@@ -23,6 +24,13 @@ function respond(error: unknown, path = '/resource'): Promise<Response> {
 }
 
 describe('errorResponse', () => {
+  it('preserves classified local Lean failures without misidentifying an upstream service', async () => {
+    const response = await respond(leanServiceError(new Error('lake serve exited: missing toolchain'), 'lean_goal'));
+    const body = await response.json() as { code: string; detail: string };
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({ code: 'lean_unavailable', detail: expect.stringContaining('lake serve exited: missing toolchain') });
+    expect(body.detail).not.toContain('upstream service');
+  });
   it.each([
     [403, 'private detail', 'You do not have permission to access this resource.'],
     [502, 'gateway detail', 'An upstream service failed. Please try again.'],

@@ -116,6 +116,23 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+/** Settle with `promise`, or reject with `describe()` once `ms` pass without it settling. */
+export function withTimeout<T>(promise: Promise<T>, ms: number, describe: () => Error): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(describe()), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 /** A promise plus its resolvers, for event-style waiting. */
 export interface Deferred<T> {
   promise: Promise<T>;

@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BlueprintCommitResult, ConversationLiveSession, SessionHistoryDetail, SessionResponse } from '@shared/api-types';
 import { appPaths } from '@main/paths';
@@ -66,7 +66,7 @@ function makeWorld(options: WorldOptions = {}): World {
     settings: new SettingsStore(join(dataDir, 'settings.json')),
     blueprintRooms: new SseRooms(() => ({})),
     sessionRooms: new SseRooms(() => ({})),
-    resourcesDir: join(dataDir, 'resources'),
+    resourcesDir: resolve('resources'),
     server: { baseUrl: 'http://127.0.0.1:4321', token: 'api-token' },
     services: { attention: { observe: attention }, ...(options.services ?? {}) },
   };
@@ -252,7 +252,7 @@ describe('POST /sessions', () => {
     expect(thread.launch.repoPath).toBe(world.repository.path);
     // The CLI's own environment carries no credentials: every shell command
     // the agent runs inherits it. The MCP server gets them through its config.
-    expect(thread.launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(thread.launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     const claude = thread.launch.claude!;
     expect(claude.allowedTools).toEqual(['mcp__fuse', 'Task']);
     expect(claude.disallowedTools).toEqual(['ScheduleWakeup', 'CronCreate', 'CronList', 'CronDelete', 'AskUserQuestion']);

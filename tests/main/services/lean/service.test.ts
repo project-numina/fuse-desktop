@@ -224,6 +224,29 @@ describe('LeanService', () => {
       expect(service.buildInProgress(project)).toBe(false);
     });
 
+    it('answers queries at once while a build is running instead of queueing them behind it', async () => {
+      let release!: () => void;
+      buildMock.runProjectBuildIfNeeded.mockImplementation(async () => {
+        await new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        return null;
+      });
+      const build = service.startBuild(project);
+      await sleep(5);
+      const position = { file_path: 'lean/Foo/Bar.lean', line: 1, column: 1 };
+      const busy = { status: 409, code: 'lean_build_in_progress' };
+      await expect(service.goals(project, position)).rejects.toMatchObject(busy);
+      await expect(service.hover(project, position)).rejects.toMatchObject(busy);
+      await expect(service.diagnostics(project, { file_path: position.file_path })).rejects.toMatchObject(busy);
+      // Another Lean project is not held up by this one's build.
+      writeFileSync(join(repoDir, 'lakefile.toml'), 'name = "root"\n');
+      const other = { ...project, projectSubdir: '', projectRoot: repoDir, roomKey: roomKeyFor(project.repository, 'other') };
+      await expect(service.goals(other, position)).rejects.toMatchObject({ status: 409, code: 'lean_setup_required' });
+      release();
+      expect((await build).status).toBe('up_to_date');
+    });
+
     it('emits the failed phase with the session or manual copy', async () => {
       buildMock.runProjectBuildIfNeeded.mockRejectedValueOnce(new Error('No lakefile.lean or lakefile.toml at clone root: /x'));
       const outcome = await service.startBuild(project, { reason: 'session' });

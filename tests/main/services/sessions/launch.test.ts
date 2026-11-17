@@ -7,6 +7,8 @@ import { appPaths } from '@main/paths';
 import { DEFAULT_AGENT_CONFIG } from '@main/store/rows';
 import { buildThreadLaunch, codexMcpBootstrap, type LaunchInput } from '@main/services/sessions/launch';
 import { fakeProject } from '@test/main/services/sessions/test-helpers';
+import { threadOptions } from '@main/agents/codex/options';
+import { BUILD_REQUEST_TIMEOUT_MS } from '@shared/build-timeouts';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -20,7 +22,7 @@ function input(provider: 'claude' | 'codex'): LaunchInput {
     conversationId: 'conv-1',
     project: fakeProject('/repo', { agent: { ...DEFAULT_AGENT_CONFIG, provider } }),
     paths: appPaths(dataDir),
-    resourcesDir: join(dataDir, 'resources'),
+    resourcesDir: join(__dirname, '../../../../resources'),
     server: { baseUrl: 'http://127.0.0.1:4321', token: 'secret-token' },
     executable: '',
     providerThreadId: null,
@@ -32,10 +34,13 @@ function input(provider: 'claude' | 'codex'): LaunchInput {
 describe('buildThreadLaunch', () => {
   it('keeps the loopback token out of the CLI environment and the Codex command line', () => {
     const launch = buildThreadLaunch(input('codex'));
-    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     const fuse = launch.codex!.mcpServers!.fuse;
     expect(fuse.command).toBe(process.execPath);
     expect(fuse.env).toEqual({ ELECTRON_RUN_AS_NODE: '1' });
+    expect(fuse.tool_timeout_sec).toBe(21960);
+    expect(fuse.tool_timeout_sec! * 1000).toBeGreaterThan(BUILD_REQUEST_TIMEOUT_MS);
+    expect(threadOptions(launch).config).toMatchObject({ shell_environment_policy: { set: launch.codex!.shellEnvironment } });
     expect(JSON.stringify(fuse)).not.toContain('secret-token');
     const [bootstrap] = fuse.args;
     expect(bootstrap.endsWith(join('prompts', 'conv-1', 'mcp-bootstrap.cjs'))).toBe(true);
@@ -45,6 +50,18 @@ describe('buildThreadLaunch', () => {
     expect(text).toContain('"FUSE_API_URL":"http://127.0.0.1:4321"');
     expect(text).toContain('mcp-server.js');
     expect(launch.codex!.developerInstructions).toContain('formalization');
+    const roles = launch.codex!.roles!;
+    expect(Object.keys(roles)).toHaveLength(8);
+    for (const [name, role] of Object.entries(roles)) {
+      expect(name).toMatch(/^fuse:/);
+      expect(role.config_file).toContain(join('agents', `${name.slice('fuse:'.length)}.toml`));
+      if (process.platform !== 'win32') expect(statSync(role.config_file).mode & 0o777).toBe(0o600);
+      const toml = readFileSync(role.config_file, 'utf8');
+      expect(toml).toMatch(/^developer_instructions = /);
+      const instructions = JSON.parse(toml.slice('developer_instructions = '.length).trim());
+      expect(instructions).toContain('Do not launch subagents or call spawn_agent');
+      expect(role.description.length).toBeGreaterThan(0);
+    }
   });
 
   it('writes a bootstrap that loads the server with the private environment applied', () => {
@@ -60,8 +77,9 @@ describe('buildThreadLaunch', () => {
 
   it('gives Claude the MCP config through a private file', () => {
     const launch = buildThreadLaunch(input('claude'));
-    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '600000' });
+    expect(launch.env).toEqual({ MCP_TOOL_TIMEOUT: '21960000' });
     expect(launch.claude!.mcpConfigJson).toBeUndefined();
+    expect(launch.codex).toBeUndefined();
     const file = launch.claude!.mcpConfigFile!;
     if (process.platform !== 'win32') expect(statSync(file).mode & 0o777).toBe(0o600);
     const config = JSON.parse(readFileSync(file, 'utf8')) as { mcpServers: { fuse: { env: Record<string, string>; args: string[] } } };

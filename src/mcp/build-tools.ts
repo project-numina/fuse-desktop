@@ -1,8 +1,8 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { FuseToolSchemas } from './tools';
 import { jsonResult, MUTATING, READ_ONLY, type FuseToolContext } from './tool-support';
+import { BUILD_REQUEST_TIMEOUT_MS } from '@shared/build-timeouts';
 
-const BUILD_TIMEOUT_MS = 1_200_000;
 const QUERY_TIMEOUT_MS = 120_000;
 const MAX_WARNINGS_IN_BUILD_RESULT = 100;
 
@@ -42,7 +42,7 @@ function registerBuild(server: McpServer, context: FuseToolContext, schemas: Fus
       const result = await context.client.post<BuildResponse>(
         `${context.internal}/build`,
         target ? { target } : {},
-        { timeoutMs: BUILD_TIMEOUT_MS },
+        { timeoutMs: BUILD_REQUEST_TIMEOUT_MS },
       );
       return jsonResult(buildPayload(result), 2);
     }),

@@ -8,6 +8,7 @@ import type {
   SessionChatMessage, SessionResponse, SessionState,
 } from '@shared/api-types';
 import type { SessionAttention } from '@shared/session-attention';
+import { SESSION_ACTIVITY_TIMEOUT_MS } from '@shared/build-timeouts';
 import { ClaudeCodeThread } from '../../../agents/claude-code';
 import { CodexThread } from '../../../agents/codex';
 import type { EventSink, ProviderThread, ThreadLaunch } from '../../../agents/types';
@@ -110,7 +111,7 @@ export abstract class SessionServiceCore {
     this.store = new ConversationStore(ctx.paths, ctx.registry);
     this.options = {
       idleTimeoutMs: options.idleTimeoutMs ?? 2 * 60 * 60 * 1000,
-      activityTimeoutMs: options.activityTimeoutMs ?? 60 * 60 * 1000,
+      activityTimeoutMs: options.activityTimeoutMs ?? SESSION_ACTIVITY_TIMEOUT_MS,
       stopWaitMs: options.stopWaitMs ?? 2000,
       interruptGraceMs: options.interruptGraceMs ?? 15_000,
       endedRetentionMs: options.endedRetentionMs ?? 60_000,

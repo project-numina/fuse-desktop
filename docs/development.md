@@ -149,7 +149,7 @@ src/
 │   │   └── sessions/        Agent sessions: prompts, launch, transcripts, permissions, SSE
 │   ├── agents/              One adapter per CLI, translating its JSON stream into AgentEvent
 │   │   ├── claude-code/     Claude adapter, event translation, permissions, process and options
-│   │   └── codex.ts         Codex adapter; shared transport utilities stay in agents/
+│   │   └── codex/           Codex app-server transport, native subagents and event translation
 │   ├── store/               JSON registries (repositories, blueprints, sources, conversations)
 │   ├── paths.ts             Where everything lives under the user-data directory
 │   ├── attention.ts         Notifications, badge, power-save blocker
@@ -183,12 +183,16 @@ send the token as a bearer. Unknown `/api` paths return the web's JSON error env
 responses carry the hosted app's Content-Security-Policy.
 
 **Agent sessions.** A chat session launches `claude` (stream-json over stdio, permission prompts
-answered from the UI) or `codex exec --json` in the repository folder, with the adapted system
+answered from the UI) or `codex app-server` over stdio in the repository folder, with the adapted system
 prompt and the `fuse` MCP server configured. The MCP tools (declaration model, Lean goals and
 diagnostics, builds) call `/api/internal/*` on the loopback server. Turn progress streams to
 the UI as server-sent events with the web's ids, replay and heartbeat semantics; transcripts
-are persisted in the web's message format so history renders identically. Claude Code's own
-`Task` subagents appear nested under the call that spawned them.
+are persisted in the web's message format so history renders identically. Both providers
+use the same eight specialist roles and nested Agent cards. Claude loads its plugin;
+Codex registers adapted role TOML files under Fuse app data and uses native multi-agent
+tools, with at most eight children and one level of delegation. Codex child snapshots
+and streamed events are merged by thread, turn, and item identity. Codex's selected
+sandbox and noninteractive approval policy remain distinct from Claude permissions.
 
 **Lean.** One `lake serve` per open project, started on demand and idle-stopped, serves goals,
 hover and diagnostics for the editors and the agent. Builds are coalesced per project and

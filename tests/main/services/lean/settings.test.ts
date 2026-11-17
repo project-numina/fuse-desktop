@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { BUILD_STALE_GRACE_MS, buildStaleAfterMs, DEFAULT_LEAN_SETTINGS, leanSettingsFromEnv } from '@main/services/lean/settings';
 
 describe('leanSettingsFromEnv', () => {
+  it('allows six hours for a build by default', () => {
+    expect(leanSettingsFromEnv({}).leanBuildTimeoutMs).toBe(6 * 60 * 60 * 1000);
+  });
   it('reads seconds for timeouts and falls back on blanks and garbage', () => {
     const settings = leanSettingsFromEnv({ LEAN_BUILD_TIMEOUT: '30', LAKE_UPDATE_TIMEOUT: ' ', LEAN_TOOLCHAIN_INSTALL_TIMEOUT: 'soon', LEAN_NUM_THREADS: '0' });
     expect(settings.leanBuildTimeoutMs).toBe(30_000);

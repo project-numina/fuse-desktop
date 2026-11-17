@@ -1,9 +1,8 @@
 import { formatToolActivity, isBackgroundLogWrite } from './activity';
 import { objectPayload, parseSseEventData } from './sse';
+import { applyPendingSubagentStatuses, recordSubagentStatus } from './pending-subagent-status';
 import {
-  applySubagentStatusCascade,
   isSubagentSpawnTool,
-  SUBAGENT_STATUS_BY_EVENT,
   SYNTHETIC_ANCHOR_TOOLS,
   syntheticSpawnFor,
 } from './subagents';
@@ -108,7 +107,10 @@ function prepareToolCall(
   if (!data || typeof data.tool !== 'string') return null;
   const input = objectPayload(data.input);
   if (isBackgroundLogWrite({ kind: 'tool_call', tool: data.tool, input })) return null;
-  if (isDuplicateToolCall(dependencies.appliedToolUseIds, data.tool_use_id)) return null;
+  if (isDuplicateToolCall(dependencies.appliedToolUseIds, data.tool_use_id)) {
+    if (typeof data.tool_use_id === 'string') applyPendingSubagentStatuses(dependencies.state, data.tool_use_id);
+    return null;
+  }
   const anchored = anchorToolActivity(dependencies, data, input);
   return {
     ...anchored,
@@ -209,6 +211,8 @@ function applyToolCall(
     spawnSubagent(dependencies, call);
   }
   dependencies.state.activities = [...dependencies.state.activities, call.item];
+  const target = call.item.parentToolUseId ?? call.item.toolUseId;
+  if (target) applyPendingSubagentStatuses(dependencies.state, target);
 }
 
 function handleCall(dependencies: ToolCallStateDependencies, event: Event): void {
@@ -257,15 +261,7 @@ function updateSubagentStatus(
   rawTargetId: unknown,
   status: string,
 ): void {
-  const mappedStatus = SUBAGENT_STATUS_BY_EVENT[status];
-  if (!mappedStatus || typeof rawTargetId !== 'string') return;
-  const hasTarget = dependencies.state.subagents.some(
-    (subagent) => subagent.parentToolUseId === rawTargetId,
-  );
-  if (!hasTarget) return;
-  const nextSubagents = dependencies.state.subagents.map((subagent) => ({ ...subagent }));
-  applySubagentStatusCascade(nextSubagents, rawTargetId, mappedStatus, Date.now());
-  dependencies.state.subagents = nextSubagents;
+  if (typeof rawTargetId === 'string') recordSubagentStatus(dependencies.state, rawTargetId, status);
 }
 
 function handleAgentStatus(
