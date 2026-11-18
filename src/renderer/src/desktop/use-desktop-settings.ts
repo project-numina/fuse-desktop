@@ -59,8 +59,12 @@ export function useDesktopSettings() {
     void cache.providers.read().then(value => { if (active) setProviders(value); })
       .catch(() => { if (active) setError('Could not check the installed CLIs.'); })
       .finally(() => { if (active) setDetecting(false); });
-    return () => { active = false; };
-  }, [cache]);
+    const unsubscribe = api?.settings.onChanged?.(value => {
+      cache.settings.set(value);
+      if (active) setSettings(value);
+    });
+    return () => { active = false; unsubscribe?.(); };
+  }, [api, cache]);
 
   /**
    * Persist a partial update. `agentDefaults` is merged by the main process,

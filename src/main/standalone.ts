@@ -10,7 +10,10 @@
  */
 
 import { mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { acquireInstanceLock, checkPort } from './instance-lock.mjs';
+import { parseStandaloneArgs } from './launch-options';
+import { stopModelProbes } from './agents/models';
 import { fileURLToPath } from 'node:url';
 import { appPaths } from './paths';
 import { startLocalServer } from './server/app';
@@ -24,50 +27,10 @@ const bundleDir = fileURLToPath(new URL('.', import.meta.url));
 /** Upper bound for ending sessions, stopping Lean and closing the server on SIGINT/SIGTERM. */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
-interface Args {
-  data: string;
-  port: number;
-  token: string | null;
-  renderer: string | null;
-  register: string[];
-}
-
-function parseArgs(argv: string[]): Args {
-  const args: Args = { data: '', port: 0, token: null, renderer: join(bundleDir, '../renderer'), register: [] };
-  for (let i = 0; i < argv.length; i += 1) {
-    const flag = argv[i];
-    const value = argv[i + 1];
-    switch (flag) {
-      case '--data':
-        args.data = resolve(value);
-        i += 1;
-        break;
-      case '--port':
-        args.port = Number(value);
-        i += 1;
-        break;
-      case '--token':
-        args.token = value;
-        i += 1;
-        break;
-      case '--renderer':
-        args.renderer = value === 'none' ? null : resolve(value);
-        i += 1;
-        break;
-      case '--register':
-        args.register.push(resolve(value));
-        i += 1;
-        break;
-      default:
-        break;
-    }
-  }
-  if (!args.data) throw new Error('--data <dir> is required');
-  return args;
-}
-
 async function main(): Promise<void> {
-  const args = parseArgs(process.argv.slice(2));
+  const args = parseStandaloneArgs(process.argv.slice(2), join(bundleDir, '../renderer'));
+  await acquireInstanceLock();
+  if (args.port) await checkPort(args.port);
   await extendPathFromLoginShell();
   mkdirSync(args.data, { recursive: true });
   const paths = appPaths(args.data);
@@ -101,6 +64,7 @@ async function main(): Promise<void> {
       registry.flushSync();
       const stop = ctx.services.shutdown as (() => Promise<void>) | undefined;
       await stop?.();
+      await stopModelProbes();
       await server.close();
     } catch (error) {
       console.error('[fuse] shutdown failed:', error);
@@ -110,6 +74,7 @@ async function main(): Promise<void> {
   };
   process.on('SIGINT', () => void shutdown());
   process.on('SIGTERM', () => void shutdown());
+  process.on('SIGHUP', () => void shutdown());
 }
 
 main().catch((error) => {

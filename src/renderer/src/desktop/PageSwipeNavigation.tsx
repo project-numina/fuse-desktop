@@ -8,7 +8,8 @@ import { installPageSwipe, type SwipeProgress } from './page-swipe';
 export default function PageSwipeNavigation({ router }: { router: ShellRouter }) {
   const [progress, setProgress] = useState<SwipeProgress | null>(null);
   useEffect(() => {
-    const navigation = desktopApi()?.navigation;
+    const api = desktopApi();
+    const navigation = api && 'navigation' in api ? api.navigation : null;
     if (!navigation) return;
     let active = true;
     let request = 0;

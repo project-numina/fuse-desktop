@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 /**
  * Shared core for the backend API client.
  *
@@ -144,7 +145,7 @@ export async function fetchApi(path: string, options: ApiRequestOptions): Promis
   let response: Response;
   try {
     response = await fetch(
-      `/api${runtimeAffinedApiPath(path, workspaceRuntimeIdentity)}`,
+      authenticatedApiUrl(`/api${runtimeAffinedApiPath(path, workspaceRuntimeIdentity)}`),
       fetchOptions,
     );
   } catch (error) {

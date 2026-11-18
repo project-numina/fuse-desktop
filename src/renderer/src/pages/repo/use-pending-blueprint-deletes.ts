@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 import {
   useCallback,
   useEffect,
@@ -72,7 +73,7 @@ function useDeleteFlusher(
     const prefix = `/api/repositories/${encodeURIComponent(route.owner)}`
       + `/${encodeURIComponent(route.repository)}/blueprints`;
     for (const id of ids) {
-      void fetch(`${prefix}/${encodeURIComponent(id)}`, {
+      void fetch(authenticatedApiUrl(`${prefix}/${encodeURIComponent(id)}`), {
         method: 'DELETE',
         credentials: 'include',
         keepalive: true,

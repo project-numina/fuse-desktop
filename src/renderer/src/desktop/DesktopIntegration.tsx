@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
-import type { MenuCommand } from '@shared/desktop';
+import type { DesktopApi, MenuCommand } from '@shared/desktop';
 import { useTheme } from '@/state/theme';
-import { desktopApi, pickAndRegisterFolder, openFolderAsRepository, repositoryRoute } from '@/desktop/bridge';
+import { desktopApi, nativeDesktopApi, pickAndRegisterFolder, openFolderAsRepository, repositoryRoute } from '@/desktop/bridge';
 import { dispatchShellEvent, FOCUS_COMPOSER_EVENT, STOP_TURN_EVENT } from '@/desktop/events';
 import {
   folderActionErrorMessage,
@@ -98,7 +98,7 @@ export default function DesktopIntegration({ router }: { router: ShellRouter }) 
   useEffect(() => {
     const api = desktopApi();
     if (!api) return;
-    void api.theme.set(theme);
+    if (api && 'theme' in api) void api.theme.set(theme);
     void api.settings.update({ theme }).catch(() => {});
   }, [theme]);
 
@@ -129,7 +129,7 @@ export default function DesktopIntegration({ router }: { router: ShellRouter }) 
   // Native menu and shortcut commands.
   useEffect(() => {
     const api = desktopApi();
-    if (!api) return;
+    if (!api || !('menu' in api)) return;
     const go = (path: string) => void router.navigate(path);
     const handle = (command: MenuCommand) => {
       if (typeof command === 'object') {
@@ -176,7 +176,7 @@ export default function DesktopIntegration({ router }: { router: ShellRouter }) 
 
   // Drop a folder anywhere on the window to open it as a repository.
   useEffect(() => {
-    const api = desktopApi();
+    const api = nativeDesktopApi();
     if (!api) return;
     const onDragOver = (event: DragEvent) => {
       if (carriesFiles(event)) event.preventDefault();
@@ -190,7 +190,7 @@ export default function DesktopIntegration({ router }: { router: ShellRouter }) 
       event.preventDefault();
       const directory = droppedDirectory(event);
       if (!directory) return;
-      const path = api.dialog.pathForFile(directory);
+      const path = (api.dialog as DesktopApi['dialog']).pathForFile(directory);
       if (!path) return;
       setFolderActionError(null);
       void openFolderAsRepository(path)

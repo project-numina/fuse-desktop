@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
-import { isDesktop, pickAndRegisterFolder } from '@/desktop/bridge';
+import { canPickFolder, pickAndRegisterFolder } from '@/desktop/bridge';
 import { ApiError, fetchLean4Tags, setupRepository, type Lean4Tag } from '@/lib/api';
 import { setDocumentTitle } from '@/lib/document-title';
 import { useDashboard, type Repository } from '@/state/dashboard';
@@ -342,7 +342,7 @@ export function useNewProjectWorkflow() {
     canSubmit: selectedRepo !== null && moduleNameValid && !creation.isSubmitting,
     directMode: directRoute.enabled,
     errorMessage,
-    isDesktopAvailable: isDesktop(),
+    isDesktopAvailable: canPickFolder(),
     step,
     ...repositoryPicker,
     ...projectFields,

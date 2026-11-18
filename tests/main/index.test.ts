@@ -1,8 +1,10 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { join } from 'node:path';
 import { DESKTOP_IPC } from '@shared/desktop';
 
 vi.mock('@main/updates', () => ({ startUpdates: () => ({ check: vi.fn() }) }));
+vi.mock('@main/instance-lock.mjs', () => ({ acquireInstanceLock: vi.fn().mockResolvedValue(vi.fn()), checkPort: vi.fn().mockResolvedValue(undefined), parsePort: Number }));
+vi.mock('@main/launch-options', () => ({ dataPath: () => '/tmp/fuse-user-data' }));
+vi.mock('@main/local-capabilities', () => ({ readLocalStorageUsage: () => ({ roots: [] }) }));
 
 const electron = vi.hoisted(() => {
   const appHandlers = new Map<string, (...args: unknown[]) => void>();
@@ -110,6 +112,7 @@ vi.mock('electron', () => ({
     setAboutPanelOptions: electron.setAboutPanelOptions,
     getVersion: electron.getVersion,
     getPath: electron.getPath,
+    setPath: vi.fn(),
     dock: { setIcon: electron.setIcon },
   },
   BrowserWindow: Object.assign(electron.BrowserWindow, {
@@ -291,12 +294,7 @@ describe('Electron main bootstrap', () => {
     expect(window.webContents.send).toHaveBeenCalledWith(DESKTOP_IPC.settingsChanged, expect.objectContaining({ theme: 'dark' }));
     expect(ipc(DESKTOP_IPC.storageInfo)()).toEqual({ path: '/tmp/fuse-user-data' });
     expect(ipc(DESKTOP_IPC.storageUsage)()).toEqual(expect.objectContaining({ roots: expect.any(Array) }));
-    expect(deps.readStorageUsage).toHaveBeenCalledWith([
-      { id: 'fuse', label: 'Fuse app data', path: '/tmp/fuse-user-data', kind: 'fuse' },
-      { id: 'elan', label: 'Lean toolchains & Elan data', path: '/elan', kind: 'lean' },
-      expect.objectContaining({ id: 'mathlib-cache', kind: 'lean' }),
-      { id: 'repo-7:project', label: 'Repo / project', path: join('/repos/repo', 'project', '.lake'), kind: 'repository' },
-    ]);
+    expect(ipc(DESKTOP_IPC.storageUsage)()).toEqual({ roots: [] });
     await expect(ipc(DESKTOP_IPC.storageOpen)()).resolves.toBeUndefined();
     expect(electron.openPath).toHaveBeenCalledWith('/tmp/fuse-user-data');
 

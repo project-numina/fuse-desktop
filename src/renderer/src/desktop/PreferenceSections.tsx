@@ -4,7 +4,7 @@ import { useTheme, type ThemePreference } from '@/state/theme';
 import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { DisclosureRow } from '@/components/ui/disclosure-row';
-import { desktopApi } from './bridge';
+import { desktopApi, isDesktop, nativeDesktopApi } from './bridge';
 import type { DesktopSectionProps } from './DesktopSettingsSections';
 import { StorageUsageSection } from './StorageUsageSection';
 
@@ -71,13 +71,16 @@ export function StorageSettings() {
     if (!storage || busy) return;
     setBusy(true); setError(null); setExported(null);
     try {
-      if (action === 'open') await storage.open();
+      if (action === 'open') {
+          const native = nativeDesktopApi();
+          if (native) await native.storage.open();
+        }
       else {
         const result = await storage.export();
-        if (result) setExported(result.path);
+        if (result) setExported('downloaded' in result ? `Download started: ${result.filename}` : `Exported to ${result.path}`);
       }
     } catch {
-      setError(action === 'open' ? 'Could not open the folder.' : 'Could not export local data. Try another destination outside Fuse’s data folder, or use Open folder to back it up manually.');
+      setError(action === 'open' ? 'Could not open the folder.' : isDesktop() ? 'Could not export local data. Try another destination outside Fuse’s data folder, or use Open folder to back it up manually.' : 'Could not download local data. Please try again.');
     } finally { setBusy(false); }
   }
   return <section className="space-y-6 border-t border-border py-6">
@@ -107,13 +110,13 @@ export function StorageSettings() {
       <h4 className="mb-2 text-sm font-medium">Fuse data folder</h4>
       {path ? <code className="block break-all text-sm text-muted-foreground">{path}</code>
         : <p className="text-sm text-muted-foreground">{storage ? 'Loading…' : api ? 'Restart Fuse to load storage controls.' : 'Open Fuse to access local data.'}</p>}
-      <button type="button" className="btn-outline-accent mt-4 px-4 py-2" disabled={!path || busy} onClick={() => void run('open')}>Open folder</button>
+      {isDesktop() && <button type="button" className="btn-outline-accent mt-4 px-4 py-2" disabled={!path || busy} onClick={() => void run('open')}>Open folder</button>}
       <p className="my-4 text-sm text-muted-foreground">JSON export of Fuse data only—not repositories or CLI-managed history. Automatic restore is not available.</p>
       <p className="mb-4 text-xs text-muted-foreground">Contains private chat content and file paths. Keep it secure.</p>
       <button type="button" className="btn-outline-accent px-4 py-2" disabled={!path || busy} onClick={() => void run('export')}>{busy ? 'Working…' : 'Export local data…'}</button>
     </DisclosureRow>
     </div>
-    {exported && <p role="status" className="break-all text-sm text-muted-foreground">Exported to {exported}</p>}
+    {exported && <p role="status" className="break-all text-sm text-muted-foreground">{exported}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </section>;
 }

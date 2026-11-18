@@ -15,7 +15,7 @@ import { timeAgo } from '@/lib/display';
 import { Input } from '@/components/ui/input';
 import AppHeader from '@/components/layout/AppHeader';
 import AppFooter from '@/components/layout/AppFooter';
-import { isDesktop, pickAndRegisterFolder, showInFolder } from '@/desktop/bridge';
+import { canPickFolder, isDesktop, pickAndRegisterFolder, showInFolder } from '@/desktop/bridge';
 
 /** Opened folders, their activity, and the Open folder action. */
 
@@ -64,7 +64,7 @@ function repositoryPath(repository: Repository): string {
  */
 function OpenFolderButton({ prominent = false }: { prominent?: boolean }) {
   const [busy, setBusy] = useState(false);
-  const enabled = isDesktop();
+  const enabled = canPickFolder();
 
   async function openFolder() {
     if (busy) return;

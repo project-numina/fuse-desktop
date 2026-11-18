@@ -17,6 +17,7 @@ import { errorResponse } from './errors';
 import type { AppContext } from './context';
 import { authRoutes } from './routes/auth';
 import { systemRoutes } from './routes/system';
+import { localRoutes } from './routes/local';
 import { repositoryRoutes } from './routes/repositories';
 import { sourceRoutes } from './routes/sources';
 import { blueprintRoutes } from './routes/blueprints';
@@ -51,7 +52,7 @@ export interface LocalServer {
   baseUrl: string;
   port: number;
   token: string;
-  /** URL that sets the session cookie and lands on the app. */
+  /** Browser entry URL carrying the token used by API requests. */
   entryUrl(path?: string): string;
   close(): Promise<void>;
 }
@@ -115,23 +116,13 @@ export function buildApp(ctx: AppContext, token: string, rendererDir: string | n
   const app = new Hono();
 
   const authorized = (c: Context): boolean => {
+    const queryToken = c.req.query(TOKEN_QUERY);
+    if (queryToken !== undefined && timingSafeEqual(queryToken, token)) return true;
     const bearer = c.req.header('authorization');
     if (bearer?.startsWith('Bearer ') && timingSafeEqual(bearer.slice(7), token)) return true;
     const cookie = parseCookies(c.req.header('cookie'))[SESSION_COOKIE];
     return cookie !== undefined && timingSafeEqual(cookie, token);
   };
-
-  // Token → cookie exchange on the first navigation of the window.
-  app.use('*', async (c: Context, next: Next) => {
-    const presented = c.req.query(TOKEN_QUERY);
-    if (presented !== undefined && timingSafeEqual(presented, token)) {
-      const url = new URL(c.req.url);
-      url.searchParams.delete(TOKEN_QUERY);
-      c.header('Set-Cookie', `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict`);
-      return c.redirect(`${url.pathname}${url.search}${url.hash}`, 302);
-    }
-    await next();
-  });
 
   app.use('/api/*', async (c: Context, next: Next) => {
     if (!authorized(c)) {
@@ -144,6 +135,7 @@ export function buildApp(ctx: AppContext, token: string, rendererDir: string | n
 
   const api = new Hono();
   api.route('/auth', authRoutes(ctx));
+  api.route('/local', localRoutes(ctx));
   api.route('/', systemRoutes(ctx));
   api.route('/', leanSystemRoutes(ctx)); // GET /api/lean-versions
   api.route('/repositories', repositoryRoutes(ctx));

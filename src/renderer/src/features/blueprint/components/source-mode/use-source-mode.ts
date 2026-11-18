@@ -1,3 +1,4 @@
+import { authenticatedApiUrl } from '@/lib/local-auth';
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import type { Extension } from '@codemirror/state';
 import { EditorView, type ViewUpdate } from '@codemirror/view';
@@ -51,7 +52,7 @@ function responseIsTruncated(response: Response, text: string): boolean {
 }
 
 async function fetchSourceText(url: string): Promise<LoadedSourceText> {
-  const response = await fetch(url, {
+  const response = await fetch(authenticatedApiUrl(url), {
     credentials: 'include',
     headers: { Range: `bytes=0-${SOURCE_TEXT_PREVIEW_BYTES - 1}` },
   });
